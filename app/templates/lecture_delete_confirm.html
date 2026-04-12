@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb">
+  <a href="/">Home</a> /
+  <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a> /
+  <a href="/lectures/{{ lecture.id }}">{{ lecture.title }}</a> /
+  delete
+</p>
+<h1>Delete this lecture?</h1>
+<p>This removes <strong>{{ lecture.title }}</strong> from the library, deletes its database row (and related links), and removes the lecture folder from disk. The course is kept even if it becomes empty.</p>
+<form method="post" action="/lectures/{{ lecture.id }}/delete" class="stack-form">
+  <button type="submit" class="button button-danger">Yes, delete lecture</button>
+  <a href="/lectures/{{ lecture.id }}" class="button button-secondary cancel-inline">Cancel</a>
+</form>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb">
+  <a href="/">Home</a> /
+  <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a> /
+  {{ lecture.title }}
+</p>
+<h1>{{ lecture.title }}</h1>
+
+{% if notice %}
+<p class="flash flash-success">{{ notice }}</p>
+{% endif %}
+{% if error %}
+<p class="flash flash-error">{{ error }}</p>
+{% endif %}
+
+<dl class="meta-grid">
+  <dt>Course</dt><dd>{{ lecture.course_name }}</dd>
+  <dt>File</dt><dd>{{ lecture.source_file_name }}</dd>
+  <dt>Created</dt><dd>{{ lecture.created_at }}</dd>
+  <dt>Status</dt><dd><span class="status-badge status-{{ lecture.status | replace('_', '-') }}">{{ lecture.status }}</span></dd>
+</dl>
+
+{% if lecture_analysis %}
+<section class="lecture-analysis-hint" aria-label="Generation analysis">
+  <h2 class="h-inline">Last generation analysis</h2>
+  <p class="muted small-print">Heuristic hints from the last run (updated when you generate study materials).</p>
+  <dl class="meta-grid meta-grid-tight">
+    <dt>Language</dt>
+    <dd>{% if lecture_analysis.detected_language == 'de' %}German{% else %}English{% endif %}</dd>
+    <dt>Profile</dt>
+    <dd>{% if lecture_analysis.content_profile == 'general' %}General{% elif lecture_analysis.content_profile == 'math' %}Math{% elif lecture_analysis.content_profile == 'code' %}Code{% elif lecture_analysis.content_profile == 'mixed' %}Mixed{% else %}{{ lecture_analysis.content_profile }}{% endif %}</dd>
+  </dl>
+</section>
+{% endif %}
+
+<section class="action-panel">
+  <h2>Actions</h2>
+  <div class="action-row">
+    <form method="post" action="/lectures/{{ lecture.id }}/re-extract">
+      <button type="submit" class="button button-secondary">Re-run extraction</button>
+    </form>
+    <form method="post" action="/lectures/{{ lecture.id }}/replace-source" enctype="multipart/form-data" class="inline-file-form">
+      <label class="file-label">
+        <span class="button button-secondary">Replace source file</span>
+        <input type="file" name="file" required onchange="this.form.requestSubmit()">
+      </label>
+    </form>
+    <form method="post" action="/lectures/{{ lecture.id }}/generate">
+      <button type="submit" class="button" {% if lecture.status not in ['ready_for_generation', 'generation_failed', 'generation_complete', 'generation_pending'] %}disabled title="Run extraction first until status is ready for generation"{% endif %}>Generate study materials</button>
+    </form>
+    <a class="button button-secondary" href="/lectures/{{ lecture.id }}/export.zip">Download lecture ZIP</a>
+    <a class="button button-danger-outline" href="/lectures/{{ lecture.id }}/confirm-delete">Delete lecture</a>
+  </div>
+  <p class="hint">Replacing the source file uploads a new file, removes the previous one from <code>source/</code>, and runs extraction again. Generation needs a valid <code>OPENAI_API_KEY</code> in <code>.env</code>.</p>
+</section>
+
+{% if lecture_concepts %}
+<section class="lecture-concepts-inline">
+  <h2>Concepts for this lecture</h2>
+  <p class="muted small-print">Parsed from generated materials; shown on the <a href="/courses/{{ lecture.course_id }}">course concept index</a> when shared across lectures.</p>
+  <ul class="concept-tags">
+    {% for c in lecture_concepts %}
+    <li>{{ c.name }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if extracted_preview %}
+<section>
+  <h2>Extracted text preview</h2>
+  <pre class="text-preview">{{ extracted_preview }}</pre>
+</section>
+{% elif lecture.status == 'extraction_failed' %}
+<section>
+  <h2>Extracted text</h2>
+  <p class="muted">Extraction did not produce usable text. Use <strong>Re-run extraction</strong> after fixing the source file, or check <code>meta.json</code>.</p>
+</section>
+{% endif %}
+
+<section class="generated-materials">
+  <h2>Generated study materials</h2>
+  <p class="muted small-print">Saved under <code>outputs/</code> as Markdown. Regenerate anytime; files are overwritten.</p>
+
+  {% for sec in generation_sections %}
+  <article class="gen-section" id="gen-{{ sec.artifact_type }}">
+    <h3>{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
+    {% if sec.html %}
+    <div class="md-output">{{ sec.html | safe }}</div>
+    {% else %}
+    <div class="placeholder-inline muted">Not generated yet. Use <strong>Generate study materials</strong> when extraction is ready.</div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

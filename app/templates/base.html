@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Study Workflow</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="brand">Study Workflow</a>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/upload">Upload</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <p>Local-only · no cloud · C-lite</p>
+  </footer>
+</body>
+</html>

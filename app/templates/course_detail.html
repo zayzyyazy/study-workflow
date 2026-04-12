@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+{% if notice %}
+<p class="flash flash-success">{{ notice }}</p>
+{% endif %}
+{% if error %}
+<p class="flash flash-error">{{ error }}</p>
+{% endif %}
+<p class="crumb"><a href="/">Home</a> / {{ course.name }}</p>
+<h1>{{ course.name }}</h1>
+<p class="muted">Slug: {{ course.slug }} · Added {{ course.created_at }}</p>
+
+<section class="action-panel">
+  <h2>Export & bulk generation</h2>
+  <div class="action-row">
+    <a class="button button-secondary" href="/courses/{{ course.id }}/export.zip">Download course ZIP</a>
+    <form method="post" action="/courses/{{ course.id }}/bulk-generate" class="inline-confirm" onsubmit="return confirm('Generate study materials for every lecture with status ready_for_generation? This runs one-by-one and uses your OpenAI quota.');">
+      <button type="submit" class="button">Generate all ready lectures</button>
+    </form>
+  </div>
+  <p class="hint">ZIP includes all lecture folders under this course plus <code>course_index/</code> if present. Bulk generate skips lectures that are not <code>ready_for_generation</code>.</p>
+</section>
+
+<section>
+  <h2>Lectures</h2>
+  <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
+    <input type="hidden" name="concept_q" value="{{ concept_q or '' }}">
+    {% if active_concept_id %}
+    <input type="hidden" name="concept" value="{{ active_concept_id }}">
+    {% endif %}
+    <div class="filter-row">
+      <label>
+        Search title
+        <input type="search" name="lec_q" value="{{ lec_q or '' }}" placeholder="Substring in title…">
+      </label>
+      <label>
+        Status
+        <select name="status">
+          <option value="">Any status</option>
+          {% for s in lecture_statuses %}
+          <option value="{{ s }}" {% if lec_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="button">Apply</button>
+      {% if lec_q or lec_status %}
+      <a href="{{ clear_lecture_href }}" class="button button-secondary">Clear lecture filters</a>
+      {% endif %}
+    </div>
+  </form>
+  {% if lectures %}
+  <ul class="card-list lecture-list-rich">
+    {% for lec in lectures %}
+    <li>
+      <div class="lecture-line">
+        <a href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
+        <span class="status-badge status-{{ lec.status | replace('_', '-') }}">{{ lec.status }}</span>
+      </div>
+      <span class="muted">{{ lec.created_at }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No lectures match these filters.</p>
+  {% endif %}
+</section>
+
+<section class="concept-index-section">
+  <h2>Course concept index</h2>
+  <p class="muted small-print">Concepts come from generated materials. Click a tag to focus one concept; search narrows the list.</p>
+  <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
+    <input type="hidden" name="lec_q" value="{{ lec_q or '' }}">
+    <input type="hidden" name="status" value="{{ lec_status or '' }}">
+    <div class="filter-row">
+      <label>
+        Filter concepts
+        <input type="search" name="concept_q" value="{{ concept_q or '' }}" placeholder="Name contains…">
+      </label>
+      <button type="submit" class="button">Apply</button>
+      {% if concept_q or active_concept_id %}
+      <a href="{{ clear_concept_href }}" class="button button-secondary">Clear concept filters</a>
+      {% endif %}
+    </div>
+  </form>
+  {% if active_concept_id %}
+  <p class="muted small-print">Showing one concept · <a href="{{ clear_concept_href }}">Show all</a></p>
+  {% endif %}
+  {% if concept_rows %}
+  <p class="muted small-print">Also saved as <code>courses/{{ course.slug }}/course_index/concept_index.md</code></p>
+  <div class="concept-chip-row">
+    {% for row in concept_rows %}
+    <a class="concept-chip {% if active_concept_id == row.concept_id %}concept-chip-active{% endif %}" href="{{ row.filter_href }}">{{ row.name }}</a>
+    {% endfor %}
+  </div>
+  <ul class="concept-recurrence-list">
+    {% for row in concept_rows %}
+    <li>
+      <div class="concept-line">
+        <strong class="concept-name">{{ row.name }}</strong>
+        <span class="concept-count">{{ row.lecture_count }} lecture{% if row.lecture_count != 1 %}s{% endif %}</span>
+      </div>
+      <ul class="concept-lecture-links">
+        {% for lec in row.lectures %}
+        <li><a href="/lectures/{{ lec.id }}">{{ lec.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No concepts match these filters. Generate study materials or adjust the search.</p>
+  {% endif %}
+</section>
+{% endblock %}

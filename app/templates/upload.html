@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Upload lecture</h1>
+
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+<form class="stack-form" method="post" action="/upload" enctype="multipart/form-data">
+  <label>
+    Course
+    <select name="course_id">
+      <option value="">— Existing course (optional if new below) —</option>
+      {% for c in courses %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    New course name (optional)
+    <input type="text" name="new_course_name" placeholder="e.g. Linear Algebra" autocomplete="off">
+  </label>
+  <p class="hint">Pick an existing course <em>or</em> type a new course name (new name takes priority).</p>
+
+  <label>
+    Lecture title <span class="req">*</span>
+    <input type="text" name="lecture_title" required placeholder="e.g. Week 1 — Vectors">
+  </label>
+
+  <label>
+    File <span class="req">*</span>
+    <input type="file" name="file" required>
+  </label>
+  <p class="hint">Supported for text extraction: .txt, .md, .pdf, .docx (no OCR).</p>
+
+  <button type="submit" class="button">Upload</button>
+</form>
+{% endblock %}

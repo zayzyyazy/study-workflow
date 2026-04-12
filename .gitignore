@@ -1,0 +1,35 @@
+# Secrets
+.env
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node (not used here but safe to include)
+node_modules/
+dist/
+build/
+
+# Runtime user data — personal courses and AI-generated outputs
+# These are created by the app at runtime, not source code
+courses/
+
+# Runtime database — recreated on first run
+data/app.db
+data/*.db
