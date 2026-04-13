@@ -6,8 +6,9 @@
   <title>{{ title }} · Study Workflow</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='vendor/katex/katex.min.css') }}">
+  {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <header class="site-header">
     <a href="/" class="brand">Study Workflow</a>
     <nav>

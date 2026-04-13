@@ -17,7 +17,15 @@
 </nav>
 
 <header class="lecture-workspace-header">
-  <h1 class="page-workspace-title lecture-workspace-title">{{ lecture.title }}</h1>
+  <div class="lecture-title-row">
+    <h1 class="page-workspace-title lecture-workspace-title">{{ lecture.title }}</h1>
+    <form method="post" action="/lectures/{{ lecture.id }}/star" class="lecture-star-form-header">
+      <input type="hidden" name="starred" value="{% if lecture.is_starred | default(0) %}0{% else %}1{% endif %}">
+      <button type="submit" class="lecture-star-btn" title="{% if lecture.is_starred | default(0) %}Remove star{% else %}Star for home list{% endif %}">
+        {% if lecture.is_starred | default(0) %}<span class="lecture-star-on">★</span> Starred{% else %}<span class="lecture-star-off">☆</span> Star{% endif %}
+      </button>
+    </form>
+  </div>
   <p class="lecture-workspace-sub lecture-workspace-sub--primary">
     <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a>
     <span class="course-workspace-sep">·</span>
@@ -75,15 +83,52 @@
   <p class="hint lecture-actions-hint">Replacing the source file uploads a new file, removes the previous one from <code>source/</code>, and runs extraction again. Generation needs a valid <code>OPENAI_API_KEY</code> in <code>.env</code>.</p>
 </section>
 
+<details class="lecture-section lecture-user-tools">
+  <summary class="lecture-user-tools-summary">Study tools &amp; testing</summary>
+  <div class="lecture-user-tools-body">
+    <p class="muted small-print lecture-user-tools-lede">Safe resets only change your marks or refresh the combined pack file — not files or AI generation.</p>
+    <p class="lecture-user-tools-actions">
+      <form method="post" action="/lectures/{{ lecture.id }}/reset-my-progress" class="lecture-tool-form">
+        <label class="home-reset-check">
+          <input type="checkbox" name="confirm" value="1" required>
+          I want to reset <strong>study progress</strong> to Not started for this lecture only
+        </label>
+        <button type="submit" class="button button-secondary button-small">Reset my study progress</button>
+      </form>
+    </p>
+    <p class="lecture-user-tools-actions">
+      <form method="post" action="/lectures/{{ lecture.id }}/rebuild-study-pack" class="lecture-tool-form">
+        <label class="home-reset-check">
+          <input type="checkbox" name="confirm" value="1" required>
+          Rebuild <code>06_study_pack.md</code> from existing section files (no AI)
+        </label>
+        <button type="submit" class="button button-secondary button-small">Rebuild study pack</button>
+      </form>
+    </p>
+    <p class="lecture-user-tools-actions">
+      <form method="post" action="/lectures/{{ lecture.id }}/reset-user-flags" class="lecture-tool-form">
+        <label class="home-reset-check">
+          <input type="checkbox" name="confirm" value="1" required>
+          Reset <strong>study progress</strong> and <strong>star</strong> for this lecture
+        </label>
+        <button type="submit" class="button button-secondary button-small">Reset study marks &amp; star</button>
+      </form>
+    </p>
+  </div>
+</details>
+
 <section class="lecture-section lecture-section--materials-primary generated-materials" id="study-materials" aria-labelledby="study-materials-heading">
   <h2 id="study-materials-heading" class="section-heading section-heading--hero">Study materials</h2>
   <p class="section-lede lecture-materials-lede">Generated from your lecture — read here or export. Files live under <code>outputs/</code> and are replaced when you regenerate.</p>
-  <p class="study-pack-export muted small-print">
-    <a href="/lectures/{{ lecture.id }}/study_pack.md" download>Download combined <code>study_pack.md</code></a>
-    <span class="export-sep">·</span>
-    <a href="/lectures/{{ lecture.id }}/study_pack.html" target="_blank" rel="noopener">Printable HTML</a>
-    <span class="muted">(browser Print → Save as PDF)</span>
-  </p>
+  <div class="study-pack-export-row">
+    <p class="study-pack-export muted small-print">
+      <a href="/lectures/{{ lecture.id }}/study_pack.md" download>Download <code>study_pack.md</code></a>
+      <span class="export-sep">·</span>
+      <a href="/lectures/{{ lecture.id }}/study_pack.html" target="_blank" rel="noopener">Printable page</a>
+    </p>
+    <button type="button" class="button button-secondary button-small study-pack-print-btn" onclick="window.open('/lectures/{{ lecture.id }}/study_pack.html','_blank')">Open print view</button>
+  </div>
+  <p class="muted small-print study-pack-print-hint">On the printable page, use <strong>Print</strong> → <strong>Save as PDF</strong> for a clean PDF.</p>
   {% if generation_sections %}
   <nav class="materials-toc materials-toc--prominent" aria-label="Jump to a section">
     {% for sec in generation_sections %}
@@ -109,11 +154,11 @@
   <p class="muted small-print section-lede">From generated materials (deterministic extract). Shared terms also appear on the <a href="/courses/{{ lecture.course_id }}">course concept index</a>.</p>
   {% if concepts_ui.total_stored == 0 %}
   <p class="concepts-empty muted">No concepts indexed yet. Generate study materials to extract terms and headings.</p>
-  {% elif concepts_ui["all_filtered_out"] %}
+  {% elif concepts_ui.all_filtered_out %}
   <p class="concepts-empty muted">Nothing to show after quality filtering. Try regenerating study materials, or adjust the source glossaries.</p>
   {% else %}
   <ul class="concept-tags concept-tags--compact">
-    {% for c in concepts_ui["items"] %}
+    {% for c in concepts_ui.items %}
     <li>{{ c.name }}</li>
     {% endfor %}
   </ul>

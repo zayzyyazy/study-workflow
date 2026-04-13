@@ -1,0 +1,160 @@
+/* Printable study pack — screen + print */
+
+.print-pack-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.print-pack-toolbar .button {
+  margin: 0;
+}
+
+.print-pack-doc {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0 0.25rem 2rem;
+}
+
+.print-pack-banner {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+.print-pack-course-line {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin: 0 0 0.25rem 0;
+}
+.print-pack-lecture-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.25;
+}
+.print-pack-banner-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+.print-pack-banner-meta span {
+  margin-right: 0.5rem;
+}
+
+.print-pack-body.md-output {
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1e293b;
+}
+.print-pack-body.md-output h1,
+.print-pack-body.md-output h2,
+.print-pack-body.md-output h3 {
+  color: #0f172a;
+  font-weight: 700;
+}
+.print-pack-body.md-output h1 {
+  font-size: 1.35rem;
+  margin-top: 1.75rem;
+  page-break-after: avoid;
+}
+.print-pack-body.md-output h2 {
+  font-size: 1.15rem;
+  margin-top: 1.5rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #e2e8f0;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+.print-pack-body.md-output h3 {
+  font-size: 1.05rem;
+  margin-top: 1.15rem;
+  page-break-after: avoid;
+}
+.print-pack-body.md-output p {
+  margin: 0.65rem 0;
+}
+.print-pack-body.md-output pre,
+.print-pack-body.md-output code {
+  font-size: 0.88em;
+}
+.print-pack-body.md-output pre {
+  padding: 0.65rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow-x: auto;
+  page-break-inside: avoid;
+}
+.print-pack-body .katex-display {
+  margin: 1rem 0;
+  page-break-inside: avoid;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    margin: 1.2cm 1.4cm;
+    size: a4;
+  }
+
+  body.print-pack-page .site-header,
+  body.print-pack-page .site-footer,
+  body.print-pack-page .print-pack-toolbar {
+    display: none !important;
+  }
+
+  body.print-pack-page main.container {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.print-pack-page .print-pack-doc {
+    max-width: none;
+    padding: 0;
+  }
+
+  body.print-pack-page .print-pack-banner {
+    border-bottom-color: #ccc;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .print-pack-body.md-output {
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+
+  .print-pack-body.md-output h2 {
+    page-break-before: auto;
+    break-before: page;
+  }
+
+  .print-pack-body.md-output h2:first-child {
+    break-before: auto;
+    page-break-before: avoid;
+  }
+
+  .print-pack-body.md-output pre,
+  .print-pack-body.md-output .katex-display {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  a[href^="http"]::after {
+    content: none;
+  }
+}

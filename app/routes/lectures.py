@@ -20,6 +20,7 @@ from app.services.lecture_paths import lecture_root_from_source_relative
 from app.services.markdown_math import markdown_to_lecture_html
 from app.services.storage_view import lecture_storage_context
 from app.services.study_output_paths import resolve_existing_output
+from app.services.study_pack_rebuild import rebuild_study_pack_file
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -121,6 +122,96 @@ def post_study_progress(
     return RedirectResponse(url=target, status_code=303)
 
 
+@router.post("/lectures/{lecture_id}/star", response_model=None)
+def post_lecture_star(
+    request: Request,
+    lecture_id: int,
+    starred: str = Form(...),
+) -> RedirectResponse:
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    if starred not in ("0", "1"):
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Invalid star value.')}",
+            status_code=303,
+        )
+    lecture_service.set_lecture_starred(lecture_id, starred == "1")
+    target = _safe_redirect_target(request, f"/lectures/{lecture_id}")
+    return RedirectResponse(url=target, status_code=303)
+
+
+@router.post("/lectures/{lecture_id}/reset-my-progress", response_model=None)
+def post_reset_single_lecture_my_progress(
+    lecture_id: int,
+    confirm: str | None = Form(default=None),
+) -> RedirectResponse:
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    if confirm != "1":
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error="
+            + quote("Check the box to confirm resetting study progress for this lecture."),
+            status_code=303,
+        )
+    if not lecture_service.reset_single_lecture_study_progress(lecture_id):
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Could not reset progress.')}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}?notice={quote('Study progress reset to Not started for this lecture.')}",
+        status_code=303,
+    )
+
+
+@router.post("/lectures/{lecture_id}/rebuild-study-pack", response_model=None)
+def post_rebuild_study_pack(
+    lecture_id: int,
+    confirm: str | None = Form(default=None),
+) -> RedirectResponse:
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    if confirm != "1":
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error="
+            + quote("Check the box to confirm rebuilding the combined study pack file."),
+            status_code=303,
+        )
+    ok, msg = rebuild_study_pack_file(lec)
+    if not ok:
+        return RedirectResponse(url=f"/lectures/{lecture_id}?error={quote(msg)}", status_code=303)
+    return RedirectResponse(url=f"/lectures/{lecture_id}?notice={quote(msg)}", status_code=303)
+
+
+@router.post("/lectures/{lecture_id}/reset-user-flags", response_model=None)
+def post_reset_lecture_user_flags(
+    lecture_id: int,
+    confirm: str | None = Form(default=None),
+) -> RedirectResponse:
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    if confirm != "1":
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error="
+            + quote("Check the box to confirm resetting study marks and star for this lecture."),
+            status_code=303,
+        )
+    if not lecture_service.reset_lecture_user_flags(lecture_id):
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Could not reset flags.')}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}?notice="
+        + quote("Study progress and star cleared for this lecture."),
+        status_code=303,
+    )
+
+
 @router.post("/lectures/{lecture_id}/re-extract", response_model=None)
 def post_re_extract(lecture_id: int) -> RedirectResponse:
     ok, msg = re_run_extraction(lecture_id)
@@ -212,6 +303,8 @@ def study_pack_printable(request: Request, lecture_id: int) -> HTMLResponse:
         {
             "title": f"Study pack — {lecture['title']}",
             "body_html": body_html,
+            "lecture": lecture,
+            "lecture_id": lecture_id,
         },
     )
 

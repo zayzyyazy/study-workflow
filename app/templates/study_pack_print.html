@@ -1,6 +1,26 @@
 {% extends "base.html" %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='study_pack_print.css') }}">
+{% endblock %}
+{% block body_class %}print-pack-page{% endblock %}
 {% block content %}
-<h1 class="study-pack-print-title">Study pack</h1>
-<p class="muted small-print">Use your browser’s <strong>Print</strong> dialog → <strong>Save as PDF</strong> if you want a PDF. Math uses the same rendering as the lecture page.</p>
-<div class="md-output study-pack-print-body">{{ body_html | safe }}</div>
+<div class="print-pack-toolbar no-print">
+  <button type="button" class="button" onclick="window.print()">Print / Save as PDF</button>
+  <a class="button button-secondary" href="/lectures/{{ lecture_id }}">Back to lecture</a>
+  <a class="button button-secondary" href="/lectures/{{ lecture_id }}/study_pack.md" download>Download .md</a>
+</div>
+
+<div class="print-pack-doc">
+  <header class="print-pack-banner">
+    <p class="print-pack-course-line">{{ lecture.course_name }}</p>
+    <h1 class="print-pack-lecture-title">{{ lecture.title }}</h1>
+    <p class="print-pack-banner-meta">
+      <span>Added <time datetime="{{ lecture.created_at }}">{{ lecture.created_at }}</time></span>
+      {% if lecture.study_progress %}
+      <span>Study: {{ lecture.study_progress | replace('_', ' ') }}</span>
+      {% endif %}
+    </p>
+  </header>
+  <div class="md-output print-pack-body study-pack-print-body">{{ body_html | safe }}</div>
+</div>
 {% endblock %}

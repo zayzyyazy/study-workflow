@@ -20,6 +20,7 @@ def home(request: Request) -> HTMLResponse:
     err = request.query_params.get("error")
     notice = request.query_params.get("notice")
     study_totals = lecture_service.study_progress_library_totals()
+    starred = attach_disk_folder_names(lecture_service.list_starred_lectures(limit=24))
     return templates.TemplateResponse(
         request,
         "home.html",
@@ -29,6 +30,7 @@ def home(request: Request) -> HTMLResponse:
             "error": err,
             "notice": notice,
             "study_totals": study_totals,
+            "starred_lectures": starred,
         },
     )
 

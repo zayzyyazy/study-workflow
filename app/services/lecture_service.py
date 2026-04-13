@@ -130,8 +130,8 @@ def list_lectures_for_course_filtered(
         conditions.append("status = ?")
         params.append(st)
 
-    sql = f"""
-        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, created_at
+        sql = f"""
+        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
         FROM lectures
         WHERE {' AND '.join(conditions)}
         ORDER BY created_at DESC
@@ -145,7 +145,7 @@ def list_recent_lectures(limit: int = 10) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.created_at,
+            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.created_at,
                    l.source_file_name, l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -162,7 +162,7 @@ def list_lectures_for_course(course_id: int) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, created_at
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
             FROM lectures
             WHERE course_id = ?
             ORDER BY created_at DESC
@@ -177,7 +177,7 @@ def get_lecture_by_id(lecture_id: int) -> Optional[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.course_id, l.title, l.slug, l.source_file_name,
-                   l.source_file_path, l.extracted_text_path, l.status, l.study_progress, l.created_at,
+                   l.source_file_path, l.extracted_text_path, l.status, l.study_progress, l.is_starred, l.created_at,
                    c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
@@ -320,3 +320,60 @@ def reset_study_progress_for_course(course_id: int) -> int:
         )
         conn.commit()
         return int(cur.rowcount)
+
+
+def reset_single_lecture_study_progress(lecture_id: int) -> bool:
+    """Set one lecture's study_progress to not_started. Does not touch pipeline status."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE lectures SET study_progress = 'not_started' WHERE id = ?",
+            (lecture_id,),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def set_lecture_starred(lecture_id: int, starred: bool) -> bool:
+    """Set is_starred (0/1)."""
+    v = 1 if starred else 0
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE lectures SET is_starred = ? WHERE id = ?",
+            (v, lecture_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def reset_lecture_user_flags(lecture_id: int) -> bool:
+    """Reset study progress and un-star one lecture."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            UPDATE lectures
+            SET study_progress = 'not_started', is_starred = 0
+            WHERE id = ?
+            """,
+            (lecture_id,),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def list_starred_lectures(limit: int = 24) -> list[dict[str, Any]]:
+    """Starred lectures for home (priority list)."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT l.id, l.title, l.status, l.study_progress, l.is_starred, l.created_at,
+                   l.source_file_path,
+                   c.id AS course_id, c.name AS course_name, c.slug AS course_slug
+            FROM lectures l
+            JOIN courses c ON c.id = l.course_id
+            WHERE l.is_starred = 1
+            ORDER BY l.created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [dict(row) for row in cur.fetchall()]

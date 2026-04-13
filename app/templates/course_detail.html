@@ -2,8 +2,14 @@
 
 {% macro lecture_folder_card(lec) %}
 <li class="lecture-folder-card lecture-folder-card--stacked lecture-folder-card--workspace">
+  <div class="lecture-folder-title-row">
+    <a class="lecture-folder-title-link" href="/lectures/{{ lec.id }}"><span class="lecture-folder-title">{{ lec.title }}</span></a>
+    <form method="post" action="/lectures/{{ lec.id }}/star" class="lecture-star-form-card" onclick="event.stopPropagation();">
+      <input type="hidden" name="starred" value="{% if lec.is_starred | default(0) %}0{% else %}1{% endif %}">
+      <button type="submit" class="lecture-star-btn-mini" title="{% if lec.is_starred | default(0) %}Remove star{% else %}Star for home{% endif %}">{% if lec.is_starred | default(0) %}★{% else %}☆{% endif %}</button>
+    </form>
+  </div>
   <a class="lecture-folder-card-link lecture-folder-card-link--workspace" href="/lectures/{{ lec.id }}">
-    <span class="lecture-folder-title">{{ lec.title }}</span>
     {% set sp = lec.study_progress | default('not_started') %}
     <span class="lecture-folder-study-row" aria-label="Study progress">
       {% if sp == 'done' %}

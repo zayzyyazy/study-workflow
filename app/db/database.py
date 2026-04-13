@@ -78,6 +78,18 @@ def _ensure_study_progress_column(conn: sqlite3.Connection) -> None:
         )
 
 
+def _ensure_is_starred_column(conn: sqlite3.Connection) -> None:
+    """Add is_starred for quick priority / favorite marking (0/1)."""
+    cur = conn.execute("PRAGMA table_info(lectures)")
+    names = {str(row[1]) for row in cur.fetchall()}
+    if "is_starred" not in names:
+        conn.execute(
+            """
+            ALTER TABLE lectures ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 0
+            """
+        )
+
+
 def init_db() -> None:
     ensure_directories()
     db_path: Path = DATABASE_PATH
@@ -86,6 +98,7 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         _migrate_legacy_statuses(conn)
         _ensure_study_progress_column(conn)
+        _ensure_is_starred_column(conn)
         conn.commit()
 
 

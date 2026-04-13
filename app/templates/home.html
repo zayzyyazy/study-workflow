@@ -21,6 +21,24 @@
 </p>
 {% endif %}
 
+{% if starred_lectures %}
+<section class="workspace-section home-starred-section" aria-labelledby="starred-heading">
+  <h2 id="starred-heading" class="section-heading section-heading--sub home-starred-heading">Starred lectures</h2>
+  <p class="muted small-print home-starred-lede">Quick access — mark stars on the course or lecture page.</p>
+  <ul class="home-starred-list">
+    {% for lec in starred_lectures %}
+    <li class="home-starred-item">
+      <a class="home-starred-link" href="/lectures/{{ lec.id }}">
+        <span class="home-starred-icon" aria-hidden="true">★</span>
+        <span class="home-starred-title">{{ lec.title }}</span>
+        <span class="home-starred-course muted">{{ lec.course_name }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="workspace-section workspace-section--primary home-courses-main" aria-labelledby="courses-heading">
   <div class="section-header-row section-header-row--minimal">
     <h2 id="courses-heading" class="section-heading visually-hidden">Your courses</h2>
