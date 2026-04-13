@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import course_service, lecture_service
+from app.services.storage_view import enrich_lecture_rows_for_course_ui
 from app.services.bulk_generation_service import run_bulk_generate_ready_in_course
 from app.services.course_index_service import aggregate_course_concepts_filtered
 from app.services.export_zip_service import zip_course_export
@@ -49,10 +50,12 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
         except ValueError:
             only_concept_id = None
 
-    lectures = lecture_service.list_lectures_for_course_filtered(
-        course_id,
-        title_query=lec_q,
-        status=lec_status,
+    lectures = enrich_lecture_rows_for_course_ui(
+        lecture_service.list_lectures_for_course_filtered(
+            course_id,
+            title_query=lec_q,
+            status=lec_status,
+        )
     )
     concept_rows = aggregate_course_concepts_filtered(
         course_id,

@@ -12,6 +12,12 @@ from app.services.slugs import sanitize_folder_name
 
 
 def build_lecture_directory_name(lecture_index: int, lecture_title: str) -> str:
+    """
+    Human-readable, filesystem-safe folder name under the course directory.
+
+    Format ``Lecture NN - {title}`` keeps lectures ordered and stable; the DB
+    stores the display title separately from the URL slug.
+    """
     title_part = sanitize_folder_name(lecture_title, max_length=80)
     return f"Lecture {lecture_index:02d} - {title_part}"
 

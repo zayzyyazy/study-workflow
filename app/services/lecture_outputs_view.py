@@ -4,44 +4,43 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-import markdown
-
 from app.services.artifact_service import GENERATION_ARTIFACT_TYPES
+from app.services.markdown_math import markdown_to_lecture_html
 from app.services.lecture_paths import lecture_root_from_source_relative
+from app.services.study_output_paths import resolve_existing_output
 
 SECTION_TITLES = {
     "glossary": "Glossary",
-    "summary": "Summary",
-    "topic_explanations": "Topic explanations",
-    "deep_dive": "Deep dive",
-    "connections": "Connections",
+    "teach_me": "Teach Me",
+    "worked_examples": "Worked Examples",
+    "mistakes_and_checks": "Mistakes and Checks",
+    "revision_sheet": "Revision Sheet",
+    "study_pack": "Study pack (single file)",
 }
 
 
 def load_generation_sections(lecture: dict[str, Any]) -> list[dict[str, Any]]:
     """
-    One entry per expected output file; includes HTML when the file exists.
+    One entry per expected output; includes HTML when a file exists.
+    Tries new filenames first, then legacy filenames for older lectures.
     """
     root = lecture_root_from_source_relative(lecture["source_file_path"])
     outputs = root / "outputs"
     out: list[dict[str, Any]] = []
-    for artifact_type, filename in GENERATION_ARTIFACT_TYPES:
-        path = outputs / filename
+    for artifact_type, _primary in GENERATION_ARTIFACT_TYPES:
+        path, fname_shown = resolve_existing_output(outputs, artifact_type)
         md: Optional[str] = None
         html = ""
-        if path.is_file():
+        if path is not None and path.is_file():
             try:
                 md = path.read_text(encoding="utf-8", errors="replace")
-                html = markdown.markdown(
-                    md,
-                    extensions=["fenced_code", "tables"],
-                )
+                html = markdown_to_lecture_html(md)
             except OSError:
                 md = None
         out.append(
             {
                 "artifact_type": artifact_type,
-                "filename": filename,
+                "filename": fname_shown,
                 "title": SECTION_TITLES.get(artifact_type, artifact_type),
                 "markdown": md,
                 "html": html,

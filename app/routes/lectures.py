@@ -4,12 +4,12 @@ import io
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import lecture_service
-from app.services.concept_service import list_concepts_for_lecture
+from app.services.concept_service import lecture_concepts_ui_context
 from app.services.lecture_delete import delete_lecture
 from app.services.lecture_extraction_actions import re_run_extraction, replace_source_file
 from app.services.export_zip_service import zip_lecture_export
@@ -17,6 +17,9 @@ from app.services.lecture_generation import run_study_materials_generation
 from app.services.lecture_meta import read_meta
 from app.services.lecture_outputs_view import load_generation_sections
 from app.services.lecture_paths import lecture_root_from_source_relative
+from app.services.markdown_math import markdown_to_lecture_html
+from app.services.storage_view import lecture_storage_context
+from app.services.study_output_paths import resolve_existing_output
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -55,7 +58,7 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
     err = request.query_params.get("error")
 
     generation_sections = load_generation_sections(lecture)
-    lecture_concepts = list_concepts_for_lecture(lecture_id)
+    concepts_ui = lecture_concepts_ui_context(lecture_id)
 
     lecture_analysis = None
     try:
@@ -66,17 +69,20 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
     except (OSError, ValueError, KeyError):
         lecture_analysis = None
 
+    storage = lecture_storage_context(lecture)
+
     return templates.TemplateResponse(
         request,
         "lecture_detail.html",
         {
             "title": lecture["title"],
             "lecture": lecture,
+            "storage": storage,
             "extracted_preview": preview,
             "notice": notice,
             "error": err,
             "generation_sections": generation_sections,
-            "lecture_concepts": lecture_concepts,
+            "concepts_ui": concepts_ui,
             "lecture_analysis": lecture_analysis,
         },
     )
@@ -132,6 +138,49 @@ def post_generate(lecture_id: int) -> RedirectResponse:
     if not ok:
         return _lecture_redirect(lecture_id, error=msg)
     return _lecture_redirect(lecture_id, notice=msg)
+
+
+@router.get("/lectures/{lecture_id}/study_pack.md")
+def download_study_pack_md(lecture_id: int) -> FileResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    path, _ = resolve_existing_output(root / "outputs", "study_pack")
+    if path is None or not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Study pack not found. Generate study materials first.",
+        )
+    return FileResponse(
+        path,
+        media_type="text/markdown; charset=utf-8",
+        filename="study_pack.md",
+    )
+
+
+@router.get("/lectures/{lecture_id}/study_pack.html", response_class=HTMLResponse)
+def study_pack_printable(request: Request, lecture_id: int) -> HTMLResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    path, _ = resolve_existing_output(root / "outputs", "study_pack")
+    if path is None or not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Study pack not found. Generate study materials first.",
+        )
+    md = path.read_text(encoding="utf-8", errors="replace")
+    body_html = markdown_to_lecture_html(md)
+    return templates.TemplateResponse(
+        request,
+        "study_pack_print.html",
+        {
+            "title": f"Study pack — {lecture['title']}",
+            "body_html": body_html,
+        },
+    )
 
 
 @router.get("/lectures/{lecture_id}/export.zip")

@@ -39,7 +39,8 @@ def list_lectures_needing_attention(limit: int = 25) -> list[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.title, l.status, l.created_at,
-                   c.id AS course_id, c.name AS course_name
+                   l.source_file_path,
+                   c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
             WHERE l.status IN ('extraction_failed', 'generation_failed', 'ready_for_generation')
@@ -60,7 +61,8 @@ def search_lectures_global(q: str, limit: int = 50) -> list[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.title, l.status, l.created_at,
-                   c.id AS course_id, c.name AS course_name
+                   l.source_file_path,
+                   c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
             WHERE instr(lower(l.title), lower(?)) > 0
@@ -95,7 +97,7 @@ def list_lectures_for_course_filtered(
         params.append(st)
 
     sql = f"""
-        SELECT id, course_id, title, slug, source_file_name, status, created_at
+        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, created_at
         FROM lectures
         WHERE {' AND '.join(conditions)}
         ORDER BY created_at DESC
@@ -110,7 +112,8 @@ def list_recent_lectures(limit: int = 10) -> list[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.title, l.slug, l.status, l.created_at,
-                   l.source_file_name, c.id AS course_id, c.name AS course_name
+                   l.source_file_name, l.source_file_path,
+                   c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
             ORDER BY l.created_at DESC
@@ -125,7 +128,7 @@ def list_lectures_for_course(course_id: int) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT id, course_id, title, slug, source_file_name, status, created_at
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, created_at
             FROM lectures
             WHERE course_id = ?
             ORDER BY created_at DESC

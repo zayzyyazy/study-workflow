@@ -7,8 +7,9 @@
 <p class="flash flash-error">{{ error }}</p>
 {% endif %}
 <p class="crumb"><a href="/">Home</a> / {{ course.name }}</p>
-<h1>{{ course.name }}</h1>
-<p class="muted">Slug: {{ course.slug }} · Added {{ course.created_at }}</p>
+<h1 class="course-page-title">{{ course.name }}</h1>
+<p class="muted course-page-added">Added {{ course.created_at }}</p>
+<p class="course-page-storage-hint muted small-print">Course folder on disk: <code class="path-chip">courses/{{ course.slug }}</code></p>
 
 <section class="action-panel">
   <h2>Export & bulk generation</h2>
@@ -21,7 +22,7 @@
   <p class="hint">ZIP includes all lecture folders under this course plus <code>course_index/</code> if present. Bulk generate skips lectures that are not <code>ready_for_generation</code>.</p>
 </section>
 
-<section>
+<section class="course-lectures-section">
   <h2>Lectures</h2>
   <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
     <input type="hidden" name="concept_q" value="{{ concept_q or '' }}">
@@ -49,14 +50,17 @@
     </div>
   </form>
   {% if lectures %}
-  <ul class="card-list lecture-list-rich">
+  <ul class="lecture-folder-list">
     {% for lec in lectures %}
-    <li>
-      <div class="lecture-line">
-        <a href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }}">{{ lec.status }}</span>
+    <li class="lecture-folder-card">
+      <a class="lecture-folder-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
+      {% if lec.disk_folder_name %}
+      <p class="lecture-folder-disk muted small-print">{{ lec.disk_folder_name }}</p>
+      {% endif %}
+      <div class="lecture-folder-footer">
+        <time class="muted lecture-folder-date" datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
+        <span class="status-badge status-{{ lec.status | replace('_', '-') }} lecture-folder-status">{{ lec.status }}</span>
       </div>
-      <span class="muted">{{ lec.created_at }}</span>
     </li>
     {% endfor %}
   </ul>
@@ -65,7 +69,7 @@
   {% endif %}
 </section>
 
-<section class="concept-index-section">
+<section class="concept-index-section course-concept-secondary">
   <h2>Course concept index</h2>
   <p class="muted small-print">Concepts come from generated materials. Click a tag to focus one concept; search narrows the list.</p>
   <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">

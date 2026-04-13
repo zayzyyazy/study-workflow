@@ -1,8 +1,7 @@
 """
 Extract key concept strings from generated Markdown files (deterministic, no LLM).
 
-Uses glossary (primary), plus headings and bold terms from summary / topics / deep dive.
-Skips connections — intra-lecture narrative, weaker for vocabulary terms.
+Uses glossary (primary), plus headings and bold terms from teach-me, worked examples, etc.
 """
 
 from __future__ import annotations
@@ -11,60 +10,19 @@ import re
 from pathlib import Path
 
 from app.services.concept_normalize import clean_display_name, normalize_concept_key
+from app.services.concept_quality import is_noise_concept
 
-# Source files (same names as generation pipeline)
+# Must match primary output filenames (study pack is aggregate — not listed here)
 SOURCES = (
     "01_glossary.md",
-    "02_summary.md",
-    "03_topic_explanations.md",
-    "04_deep_dive.md",
+    "02_teach_me.md",
+    "03_worked_examples.md",
+    "04_mistakes_and_checks.md",
+    "05_revision_sheet.md",
 )
 
-MAX_CONCEPTS = 80
-MIN_LEN = 2
-MAX_LEN = 120
-
-# Skip obvious non-concepts
-_STOP = frozenset(
-    {
-        "introduction",
-        "summary",
-        "conclusion",
-        "overview",
-        "example",
-        "examples",
-        "note",
-        "notes",
-        "figure",
-        "table",
-        "lecture",
-        "topic",
-        "topics",
-        "section",
-        "glossary",
-        "deep dive",
-        "topic explanations",
-        "connections",
-        # German section titles from language-aware generation
-        "glossar",
-        "zusammenfassung",
-        "vertiefung",
-        "zusammenhänge",
-        "themen und kurzerklärungen",
-        "themen",
-    }
-)
-
-
-def _skip_term(s: str) -> bool:
-    t = s.strip()
-    if len(t) < MIN_LEN or len(t) > MAX_LEN:
-        return True
-    if normalize_concept_key(t) in _STOP:
-        return True
-    if t.isdigit():
-        return True
-    return False
+MAX_CONCEPTS = 55
+MAX_BOLD_PICKS = 22
 
 
 def _from_glossary_line(line: str) -> str | None:
@@ -79,9 +37,10 @@ def _from_glossary_line(line: str) -> str | None:
             raw = raw.split(sep)[0]
             break
     raw = raw.strip().strip("*`").strip()
-    if _skip_term(raw):
+    raw = clean_display_name(raw)
+    if is_noise_concept(raw, mode="glossary"):
         return None
-    return clean_display_name(raw)
+    return raw
 
 
 def _from_table_row(line: str) -> str | None:
@@ -98,7 +57,7 @@ def _from_table_row(line: str) -> str | None:
         return None
     cell = re.sub(r"\*\*(.+?)\*\*", r"\1", cell)
     cell = clean_display_name(cell)
-    if _skip_term(cell):
+    if is_noise_concept(cell, mode="glossary"):
         return None
     return cell
 
@@ -126,7 +85,7 @@ def _parse_headings(text: str) -> list[str]:
         title = m.group(1).strip()
         title = re.sub(r"\*\*(.+?)\*\*", r"\1", title)
         title = clean_display_name(title)
-        if not _skip_term(title):
+        if not is_noise_concept(title, mode="strict"):
             out.append(title)
     return out
 
@@ -135,7 +94,7 @@ def _parse_bold(text: str, limit: int = 35) -> list[str]:
     out: list[str] = []
     for m in re.finditer(r"\*\*([^*]{2,80})\*\*", text):
         t = clean_display_name(m.group(1).strip())
-        if not _skip_term(t):
+        if not is_noise_concept(t, mode="strict"):
             out.append(t)
         if len(out) >= limit:
             break
@@ -150,13 +109,13 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
     seen: dict[str, str] = {}
     order: list[str] = []
 
-    def add_many(items: list[str]) -> None:
+    def add_many(items: list[str], *, mode: str) -> None:
         for item in items:
             disp = clean_display_name(item)
-            if _skip_term(disp):
+            if is_noise_concept(disp, mode=mode):
                 continue
             key = normalize_concept_key(disp)
-            if not key or key in _STOP:
+            if not key:
                 continue
             if key not in seen:
                 seen[key] = disp
@@ -171,9 +130,9 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
         except OSError:
             continue
         if "glossary" in fname.lower():
-            add_many(_parse_glossary(text))
-        add_many(_parse_headings(text))
-        if "summary" in fname or "deep" in fname or "topic" in fname:
-            add_many(_parse_bold(text))
+            add_many(_parse_glossary(text), mode="glossary")
+        add_many(_parse_headings(text), mode="strict")
+        if "01_glossary" not in fname:
+            add_many(_parse_bold(text), mode="strict")
 
     return order[:MAX_CONCEPTS]

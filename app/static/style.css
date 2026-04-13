@@ -170,7 +170,8 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.lecture-analysis-hint .h-inline {
+.lecture-analysis-hint .h-inline,
+.lecture-analysis-hint .section-title {
   margin: 0 0 0.35rem;
   font-size: 1.1rem;
 }
@@ -337,9 +338,11 @@ code {
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
 }
-.gen-section h3 {
-  margin-top: 0;
-  font-size: 1.05rem;
+.gen-section h3,
+.gen-section-title {
+  margin: 0 0 0.65rem 0;
+  font-size: 1.08rem;
+  font-weight: 600;
 }
 .placeholder-inline {
   padding: 0.5rem 0;
@@ -347,13 +350,27 @@ code {
 
 .md-output {
   font-size: 0.95rem;
-  line-height: 1.55;
+  line-height: 1.65;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 .md-output h1,
 .md-output h2,
 .md-output h3 {
   margin-top: 1rem;
   margin-bottom: 0.35rem;
+}
+.md-output .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35rem 0;
+  max-width: 100%;
+}
+.md-output .katex {
+  font-size: 1.05em;
+}
+.md-output p {
+  margin: 0.5rem 0;
 }
 .md-output ul,
 .md-output ol {
@@ -551,4 +568,326 @@ button:disabled {
   background: #dbeafe;
   border-color: #93c5fd;
   font-weight: 600;
+}
+
+/* --- Library & storage UX --- */
+.path-chip,
+.path-line {
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+.course-library-item {
+  padding: 0.85rem 1rem;
+}
+.course-library-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.course-library-disk {
+  margin: 0.35rem 0 0 0;
+}
+
+.home-lecture-cards .home-lecture-card {
+  padding: 0.85rem 1rem;
+}
+.home-lecture-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.home-lecture-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 12rem;
+}
+.home-lecture-status {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+.home-lecture-meta {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.9rem;
+}
+.home-lecture-sep {
+  margin: 0 0.25rem;
+}
+.home-lecture-folder {
+  margin: 0.35rem 0 0 0;
+}
+
+.course-page-title {
+  margin-bottom: 0.25rem;
+}
+.course-page-added {
+  margin: 0 0 0.35rem 0;
+}
+.course-page-storage-hint {
+  margin: 0 0 1.25rem 0;
+}
+
+.lecture-folder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.lecture-folder-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.65rem;
+}
+.lecture-folder-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.lecture-folder-disk {
+  margin: 0.35rem 0 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.lecture-folder-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.lecture-folder-date {
+  font-size: 0.88rem;
+}
+.lecture-folder-status {
+  font-size: 0.75rem;
+}
+
+.course-concept-secondary h2 {
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.lecture-overview-meta {
+  margin-bottom: 1rem;
+}
+
+.storage-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+.storage-panel .section-title,
+.storage-panel h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+.storage-lede {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  line-height: 1.45;
+}
+.storage-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 0.5rem 1rem;
+  font-size: 0.95rem;
+}
+.storage-dl dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+.storage-dl dd {
+  margin: 0;
+  min-width: 0;
+}
+.storage-sub {
+  margin-top: 0.25rem;
+}
+.storage-folder-label {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+.storage-file-name {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+}
+.storage-details {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.storage-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+.path-raw {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  margin: 0.5rem 0;
+}
+.storage-copy-row {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.button-small {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+}
+
+@media (max-width: 36rem) {
+  .storage-dl {
+    grid-template-columns: 1fr;
+  }
+  .storage-dl dt {
+    margin-top: 0.5rem;
+  }
+  .storage-dl dt:first-child {
+    margin-top: 0;
+  }
+}
+
+/* --- Lecture detail page hierarchy --- */
+.lecture-page-header {
+  margin-bottom: 0.25rem;
+}
+.lecture-page-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+}
+.lecture-section {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.lecture-page-header + .lecture-section {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 650;
+  margin: 0 0 0.35rem 0;
+  color: var(--text);
+}
+.section-title--secondary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.section-lede {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+  line-height: 1.45;
+}
+.lecture-section .action-panel,
+.lecture-section.storage-panel {
+  margin: 0;
+  padding: 1rem 1.25rem;
+}
+.lecture-section--actions.action-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.concepts-secondary {
+  padding-bottom: 0.25rem;
+}
+.concept-tags--compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0 0;
+}
+.concept-tags--compact li {
+  display: inline-block;
+  padding: 0.22rem 0.55rem;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+  max-width: 100%;
+  word-break: break-word;
+}
+.concepts-empty {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.95rem;
+}
+.concepts-cap-note {
+  margin: 0.65rem 0 0 0;
+}
+
+.materials-toc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.9rem;
+  margin: 0 0 1.25rem 0;
+  padding: 0.65rem 0.9rem;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.materials-toc::before {
+  content: "Jump to:";
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 0.25rem;
+}
+.materials-toc-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.materials-toc-link:hover {
+  border-bottom-color: var(--accent);
+}
+
+.generated-materials .gen-section {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid #e2e8f0;
+}
+.generated-materials .gen-section:first-of-type {
+  margin-top: 0.5rem;
+  padding-top: 0;
+  border-top: none;
+}
+.generated-materials .md-output {
+  line-height: 1.62;
+}
+
+.study-pack-export {
+  margin: 0.35rem 0 0.75rem 0;
+}
+.study-pack-export .export-sep {
+  margin: 0 0.35rem;
+}
+.study-pack-print-title {
+  margin-top: 0;
+}
+.study-pack-print-body {
+  margin-top: 1rem;
 }

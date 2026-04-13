@@ -4,22 +4,28 @@ from __future__ import annotations
 
 import re
 
+from app.services.concept_quality import strip_leading_numbering
+
 
 def normalize_concept_key(text: str) -> str:
     """
-    Lowercase, trim, collapse whitespace, strip simple punctuation edges.
-    Used as the canonical match key (stored in concepts.normalized_name).
+    Canonical match key (stored in ``concepts.normalized_name``).
+
+    Strips outline numbering first so ``1. Foo`` and ``Foo`` align; lowercases,
+    collapses whitespace, trims edge punctuation.
     """
-    s = text.strip().lower()
+    s = strip_leading_numbering(text.strip())
+    s = s.lower()
     s = re.sub(r"\s+", " ", s)
     s = s.strip(".,;:!?-*•'\"«»()[]`")
     return s
 
 
 def clean_display_name(text: str) -> str:
-    """Light cleanup for display; keeps original casing mostly."""
-    s = text.strip()
+    """Readable label: trim, strip numbering prefixes, collapse spaces, cap length."""
+    s = strip_leading_numbering(text.strip())
     s = re.sub(r"\s+", " ", s)
+    s = s.strip(" \t")
     if len(s) > 200:
         s = s[:197] + "…"
     return s

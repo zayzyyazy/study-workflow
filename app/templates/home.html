@@ -37,14 +37,21 @@
 <section>
   <h2>Search results ({{ search_hits | length }})</h2>
   {% if search_hits %}
-  <ul class="card-list lecture-list-rich">
+  <ul class="card-list home-lecture-cards">
     {% for lec in search_hits %}
-    <li>
-      <div class="lecture-line">
-        <a href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }}">{{ lec.status }}</span>
+    <li class="home-lecture-card">
+      <div class="home-lecture-head">
+        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
+        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
       </div>
-      <span class="muted">{{ lec.course_name }} · {{ lec.created_at }}</span>
+      <p class="home-lecture-meta muted">
+        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
+        <span class="home-lecture-sep">·</span>
+        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
+      </p>
+      {% if lec.disk_folder_name %}
+      <p class="home-lecture-folder muted small-print">Lecture folder: <code>{{ lec.disk_folder_name }}</code></p>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -60,14 +67,21 @@
   <h2>Needs attention</h2>
   <p class="muted small-print">Extraction failed, generation failed, or ready to generate (not yet run).</p>
   {% if needs_attention %}
-  <ul class="card-list lecture-list-rich">
+  <ul class="card-list home-lecture-cards">
     {% for lec in needs_attention %}
-    <li>
-      <div class="lecture-line">
-        <a href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }}">{{ lec.status }}</span>
+    <li class="home-lecture-card">
+      <div class="home-lecture-head">
+        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
+        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
       </div>
-      <span class="muted"><a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a> · {{ lec.created_at }}</span>
+      <p class="home-lecture-meta muted">
+        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
+        <span class="home-lecture-sep">·</span>
+        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
+      </p>
+      {% if lec.disk_folder_name %}
+      <p class="home-lecture-folder muted small-print">Lecture folder: <code>{{ lec.disk_folder_name }}</code></p>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -76,14 +90,14 @@
   {% endif %}
 </section>
 
-<section>
+<section class="home-courses-section">
   <h2>Courses</h2>
   {% if courses %}
-  <ul class="card-list">
+  <ul class="card-list course-library-list">
     {% for c in courses %}
-    <li>
-      <a href="/courses/{{ c.id }}">{{ c.name }}</a>
-      <span class="muted">{{ c.slug }}</span>
+    <li class="course-library-item">
+      <a class="course-library-title" href="/courses/{{ c.id }}">{{ c.name }}</a>
+      <p class="course-library-disk muted small-print">Folder: <code class="path-chip">courses/{{ c.slug }}</code></p>
     </li>
     {% endfor %}
   </ul>
@@ -95,14 +109,21 @@
 <section>
   <h2>Recent lectures</h2>
   {% if recent_lectures %}
-  <ul class="card-list lecture-list-rich">
+  <ul class="card-list home-lecture-cards">
     {% for lec in recent_lectures %}
-    <li>
-      <div class="lecture-line">
-        <a href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }}">{{ lec.status }}</span>
+    <li class="home-lecture-card">
+      <div class="home-lecture-head">
+        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
+        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
       </div>
-      <span class="muted">{{ lec.course_name }} · {{ lec.created_at }}</span>
+      <p class="home-lecture-meta muted">
+        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
+        <span class="home-lecture-sep">·</span>
+        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
+      </p>
+      {% if lec.disk_folder_name %}
+      <p class="home-lecture-folder muted small-print">Lecture folder: <code>{{ lec.disk_folder_name }}</code></p>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

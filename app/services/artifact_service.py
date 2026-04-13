@@ -9,10 +9,11 @@ from app.db.database import get_connection
 # Matches output filenames under outputs/
 GENERATION_ARTIFACT_TYPES: tuple[tuple[str, str], ...] = (
     ("glossary", "01_glossary.md"),
-    ("summary", "02_summary.md"),
-    ("topic_explanations", "03_topic_explanations.md"),
-    ("deep_dive", "04_deep_dive.md"),
-    ("connections", "05_connections.md"),
+    ("teach_me", "02_teach_me.md"),
+    ("worked_examples", "03_worked_examples.md"),
+    ("mistakes_and_checks", "04_mistakes_and_checks.md"),
+    ("revision_sheet", "05_revision_sheet.md"),
+    ("study_pack", "06_study_pack.md"),
 )
 
 

@@ -5,26 +5,25 @@
   <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a> /
   {{ lecture.title }}
 </p>
-<h1>{{ lecture.title }}</h1>
 
-{% if notice %}
-<p class="flash flash-success">{{ notice }}</p>
-{% endif %}
-{% if error %}
-<p class="flash flash-error">{{ error }}</p>
-{% endif %}
-
-<dl class="meta-grid">
-  <dt>Course</dt><dd>{{ lecture.course_name }}</dd>
-  <dt>File</dt><dd>{{ lecture.source_file_name }}</dd>
-  <dt>Created</dt><dd>{{ lecture.created_at }}</dd>
-  <dt>Status</dt><dd><span class="status-badge status-{{ lecture.status | replace('_', '-') }}">{{ lecture.status }}</span></dd>
-</dl>
+<header class="lecture-page-header">
+  <h1 class="lecture-page-title">{{ lecture.title }}</h1>
+  {% if notice %}
+  <p class="flash flash-success">{{ notice }}</p>
+  {% endif %}
+  {% if error %}
+  <p class="flash flash-error">{{ error }}</p>
+  {% endif %}
+  <dl class="meta-grid lecture-overview-meta">
+    <dt>Added</dt><dd><time datetime="{{ lecture.created_at }}">{{ lecture.created_at }}</time></dd>
+    <dt>Status</dt><dd><span class="status-badge status-{{ lecture.status | replace('_', '-') }}">{{ lecture.status }}</span></dd>
+  </dl>
+</header>
 
 {% if lecture_analysis %}
-<section class="lecture-analysis-hint" aria-label="Generation analysis">
-  <h2 class="h-inline">Last generation analysis</h2>
-  <p class="muted small-print">Heuristic hints from the last run (updated when you generate study materials).</p>
+<section class="lecture-section lecture-section--analysis lecture-analysis-hint" aria-label="Generation analysis">
+  <h2 class="section-title">Last generation analysis</h2>
+  <p class="muted small-print section-lede">Heuristic hints from the last run (updated when you generate study materials).</p>
   <dl class="meta-grid meta-grid-tight">
     <dt>Language</dt>
     <dd>{% if lecture_analysis.detected_language == 'de' %}German{% else %}English{% endif %}</dd>
@@ -34,8 +33,8 @@
 </section>
 {% endif %}
 
-<section class="action-panel">
-  <h2>Actions</h2>
+<section class="lecture-section lecture-section--actions action-panel">
+  <h2 class="section-title">Actions</h2>
   <div class="action-row">
     <form method="post" action="/lectures/{{ lecture.id }}/re-extract">
       <button type="submit" class="button button-secondary">Re-run extraction</button>
@@ -55,37 +54,114 @@
   <p class="hint">Replacing the source file uploads a new file, removes the previous one from <code>source/</code>, and runs extraction again. Generation needs a valid <code>OPENAI_API_KEY</code> in <code>.env</code>.</p>
 </section>
 
-{% if lecture_concepts %}
-<section class="lecture-concepts-inline">
-  <h2>Concepts for this lecture</h2>
-  <p class="muted small-print">Parsed from generated materials; shown on the <a href="/courses/{{ lecture.course_id }}">course concept index</a> when shared across lectures.</p>
-  <ul class="concept-tags">
-    {% for c in lecture_concepts %}
+<section class="lecture-section lecture-section--storage storage-panel" aria-labelledby="storage-heading">
+  <h2 id="storage-heading" class="section-title">Files &amp; folders</h2>
+  <p class="muted small-print section-lede">Material is stored under <code>courses/</code> next to the app. Display names (<strong>{{ lecture.course_name }}</strong>, <strong>{{ lecture.title }}</strong>) are what you see in the library; folder names stay filesystem-safe.</p>
+  <dl class="storage-dl">
+    <dt>Course</dt>
+    <dd>
+      <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a>
+      {% if storage.course_folder_rel %}
+      <div class="storage-sub muted small-print">On disk: <code class="path-chip">{{ storage.course_folder_rel }}</code></div>
+      {% endif %}
+    </dd>
+    <dt>Lecture folder</dt>
+    <dd>
+      {% if storage.lecture_folder_name %}
+      <div class="storage-folder-label">{{ storage.lecture_folder_name }}</div>
+      {% endif %}
+      {% if storage.lecture_folder_rel %}
+      <div><code class="path-line">{{ storage.lecture_folder_rel }}</code></div>
+      {% else %}
+      <span class="muted">—</span>
+      {% endif %}
+    </dd>
+    <dt>Source file</dt>
+    <dd>
+      <span class="storage-file-name">{{ lecture.source_file_name }}</span>
+      {% if storage.source_file_rel %}
+      <div><code class="path-line">{{ storage.source_file_rel }}</code></div>
+      {% endif %}
+    </dd>
+    <dt>Generated outputs</dt>
+    <dd>
+      {% if storage.outputs_rel %}
+      <code class="path-line">{{ storage.outputs_rel }}</code>
+      {% else %}
+      <span class="muted">—</span>
+      {% endif %}
+    </dd>
+    <dt>Extracted text</dt>
+    <dd>
+      {% if storage.extracted_rel %}
+      <code class="path-line">{{ storage.extracted_rel }}</code>
+      {% else %}
+      <span class="muted">Not written yet (or extraction failed)</span>
+      {% endif %}
+    </dd>
+  </dl>
+  {% if storage.full_lecture_root %}
+  <details class="storage-details">
+    <summary>Full path on this computer</summary>
+    <p class="muted small-print">Paste into Finder → Go → Go to Folder…, or a terminal.</p>
+    <pre class="path-raw" id="js-lecture-full-path">{{ storage.full_lecture_root }}</pre>
+    <p class="storage-copy-row">
+      <button type="button" class="button button-secondary button-small" id="js-copy-lecture-path">Copy full path</button>
+      <span class="copy-feedback muted" id="js-copy-feedback" hidden>Copied</span>
+    </p>
+  </details>
+  {% endif %}
+</section>
+
+<section class="lecture-section lecture-section--concepts concepts-secondary" aria-labelledby="concepts-heading">
+  <h2 id="concepts-heading" class="section-title section-title--secondary">Key concepts</h2>
+  <p class="muted small-print section-lede">Derived from generated materials (deterministic extract). Also listed on the <a href="/courses/{{ lecture.course_id }}">course concept index</a> when shared across lectures.</p>
+  {% if concepts_ui.total_stored == 0 %}
+  <p class="concepts-empty muted">No concepts indexed yet. Generate study materials to extract terms and headings.</p>
+  {% elif concepts_ui.all_filtered_out %}
+  <p class="concepts-empty muted">Nothing to show after quality filtering. Try regenerating study materials, or adjust the source glossaries.</p>
+  {% else %}
+  <ul class="concept-tags concept-tags--compact">
+    {% for c in concepts_ui.items %}
     <li>{{ c.name }}</li>
     {% endfor %}
   </ul>
+  {% if concepts_ui.hit_display_cap %}
+  <p class="muted small-print concepts-cap-note">Showing {{ concepts_ui.shown }} concepts (capped for clarity).</p>
+  {% endif %}
+  {% endif %}
 </section>
-{% endif %}
 
 {% if extracted_preview %}
-<section>
-  <h2>Extracted text preview</h2>
+<section class="lecture-section lecture-section--extracted">
+  <h2 class="section-title">Extracted text preview</h2>
   <pre class="text-preview">{{ extracted_preview }}</pre>
 </section>
 {% elif lecture.status == 'extraction_failed' %}
-<section>
-  <h2>Extracted text</h2>
+<section class="lecture-section lecture-section--extracted">
+  <h2 class="section-title">Extracted text</h2>
   <p class="muted">Extraction did not produce usable text. Use <strong>Re-run extraction</strong> after fixing the source file, or check <code>meta.json</code>.</p>
 </section>
 {% endif %}
 
-<section class="generated-materials">
-  <h2>Generated study materials</h2>
-  <p class="muted small-print">Saved under <code>outputs/</code> as Markdown. Regenerate anytime; files are overwritten.</p>
+<section class="lecture-section lecture-section--materials generated-materials" id="study-materials">
+  <h2 class="section-title">Generated study materials</h2>
+  <p class="muted small-print section-lede">Saved under <code>outputs/</code> as Markdown. Regenerate anytime; files are overwritten.</p>
+  <p class="study-pack-export muted small-print">
+    <a href="/lectures/{{ lecture.id }}/study_pack.md" download>Download combined <code>study_pack.md</code></a>
+    <span class="export-sep">·</span>
+    <a href="/lectures/{{ lecture.id }}/study_pack.html" target="_blank" rel="noopener">Printable HTML</a>
+    <span class="muted">(browser Print → Save as PDF)</span>
+  </p>
+  <nav class="materials-toc" aria-label="Jump to a section">
+    {% for sec in generation_sections %}
+    <a class="materials-toc-link" href="#gen-{{ sec.artifact_type }}">{{ sec.title }}</a>
+    {% endfor %}
+  </nav>
 
   {% for sec in generation_sections %}
   <article class="gen-section" id="gen-{{ sec.artifact_type }}">
-    <h3>{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
+    <h3 class="gen-section-title">{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
     {% if sec.html %}
     <div class="md-output">{{ sec.html | safe }}</div>
     {% else %}
@@ -94,4 +170,29 @@
   </article>
   {% endfor %}
 </section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+  var btn = document.getElementById("js-copy-lecture-path");
+  var pathEl = document.getElementById("js-lecture-full-path");
+  var feedback = document.getElementById("js-copy-feedback");
+  if (!btn || !pathEl) return;
+  btn.addEventListener("click", function () {
+    var text = pathEl.textContent.trim();
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        if (feedback) {
+          feedback.hidden = false;
+          setTimeout(function () {
+            feedback.hidden = true;
+          }, 2000);
+        }
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}

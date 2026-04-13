@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="study-pack-print-title">Study pack</h1>
+<p class="muted small-print">Use your browser’s <strong>Print</strong> dialog → <strong>Save as PDF</strong> if you want a PDF. Math uses the same rendering as the lecture page.</p>
+<div class="md-output study-pack-print-body">{{ body_html | safe }}</div>
+{% endblock %}

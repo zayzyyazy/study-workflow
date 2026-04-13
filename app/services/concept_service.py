@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from app.db.database import get_connection
 from app.services.concept_normalize import normalize_concept_key
+from app.services.concept_quality import filter_concept_rows_for_display
 
 
 def _get_or_create_concept_id(conn, display_name: str, norm: str) -> int:
@@ -64,3 +65,18 @@ def list_concepts_for_lecture(lecture_id: int) -> list[dict[str, Any]]:
             (lecture_id,),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def lecture_concepts_ui_context(lecture_id: int) -> dict[str, Any]:
+    """
+    Concepts for the lecture detail page: filtered, capped, with counts for empty/capped hints.
+    """
+    rows = list_concepts_for_lecture(lecture_id)
+    filtered, total, all_filtered, hit_cap = filter_concept_rows_for_display(rows)
+    return {
+        "items": filtered,
+        "total_stored": total,
+        "shown": len(filtered),
+        "hit_display_cap": hit_cap,
+        "all_filtered_out": all_filtered,
+    }
