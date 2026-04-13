@@ -23,6 +23,25 @@ def list_courses() -> list[dict[str, Any]]:
         return [dict(row) for row in cur.fetchall()]
 
 
+def list_courses_for_home_dashboard() -> list[dict[str, Any]]:
+    """
+    Courses with lecture count and latest lecture date for folder-style home cards.
+    """
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT c.id, c.name, c.slug, c.created_at,
+                   COUNT(l.id) AS lecture_count,
+                   MAX(l.created_at) AS last_lecture_at
+            FROM courses c
+            LEFT JOIN lectures l ON l.course_id = c.id
+            GROUP BY c.id
+            ORDER BY c.name COLLATE NOCASE
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
 def get_course_by_id(course_id: int) -> Optional[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(

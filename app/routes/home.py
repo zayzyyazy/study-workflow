@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request) -> HTMLResponse:
-    courses = course_service.list_courses()
+    courses = course_service.list_courses_for_home_dashboard()
     recent = attach_disk_folder_names(lecture_service.list_recent_lectures(limit=12))
     err = request.query_params.get("error")
     dash = get_home_dashboard()

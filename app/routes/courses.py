@@ -83,6 +83,7 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
     )
     notice = request.query_params.get("notice")
     err = request.query_params.get("error")
+    total_lectures_in_course = lecture_service.count_lectures_for_course(course_id)
     return templates.TemplateResponse(
         request,
         "course_detail.html",
@@ -90,6 +91,7 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "title": course["name"],
             "course": course,
             "lectures": lectures,
+            "total_lectures_in_course": total_lectures_in_course,
             "notice": notice,
             "error": err,
             "concept_rows": concept_rows,

@@ -6,13 +6,29 @@
 {% if error %}
 <p class="flash flash-error">{{ error }}</p>
 {% endif %}
-<p class="crumb"><a href="/">Home</a> / {{ course.name }}</p>
-<h1 class="course-page-title">{{ course.name }}</h1>
-<p class="muted course-page-added">Added {{ course.created_at }}</p>
-<p class="course-page-storage-hint muted small-print">Course folder on disk: <code class="path-chip">courses/{{ course.slug }}</code></p>
+
+<div class="workspace-course">
+<nav class="crumb crumb-path" aria-label="Breadcrumb">
+  <a href="/">Home</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <span class="crumb-current">{{ course.name }}</span>
+</nav>
+
+<header class="course-workspace-header">
+  <h1 class="page-workspace-title course-workspace-title">{{ course.name }}</h1>
+  <p class="muted course-workspace-sub">
+    {{ total_lectures_in_course }} lecture{% if total_lectures_in_course != 1 %}s{% endif %} in this course
+    <span class="course-workspace-sep">·</span>
+    Course added <time datetime="{{ course.created_at }}">{{ course.created_at }}</time>
+  </p>
+  <details class="course-storage-details">
+    <summary class="course-storage-summary muted small-print">Technical: folder on disk</summary>
+    <p class="muted small-print course-storage-body"><code class="path-chip">courses/{{ course.slug }}</code></p>
+  </details>
+</header>
 
 <section class="action-panel">
-  <h2>Export & bulk generation</h2>
+  <h2 class="section-heading">Export & bulk generation</h2>
   <div class="action-row">
     <a class="button button-secondary" href="/courses/{{ course.id }}/export.zip">Download course ZIP</a>
     <form method="post" action="/courses/{{ course.id }}/bulk-generate" class="inline-confirm" onsubmit="return confirm('Generate study materials for every lecture with status ready_for_generation? This runs one-by-one and uses your OpenAI quota.');">
@@ -22,8 +38,9 @@
   <p class="hint">ZIP includes all lecture folders under this course plus <code>course_index/</code> if present. Bulk generate skips lectures that are not <code>ready_for_generation</code>.</p>
 </section>
 
-<section class="course-lectures-section">
-  <h2>Lectures</h2>
+<section class="course-lectures-section workspace-section">
+  <h2 class="section-heading">Lectures</h2>
+  <p class="muted section-sub">Open a lecture to read notes, concepts, and generated study packs.</p>
   <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
     <input type="hidden" name="concept_q" value="{{ concept_q or '' }}">
     {% if active_concept_id %}
@@ -50,27 +67,38 @@
     </div>
   </form>
   {% if lectures %}
-  <ul class="lecture-folder-list">
+  <ul class="lecture-folder-list lecture-folder-grid">
     {% for lec in lectures %}
     <li class="lecture-folder-card">
-      <a class="lecture-folder-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-      {% if lec.disk_folder_name %}
-      <p class="lecture-folder-disk muted small-print">{{ lec.disk_folder_name }}</p>
-      {% endif %}
-      <div class="lecture-folder-footer">
-        <time class="muted lecture-folder-date" datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }} lecture-folder-status">{{ lec.status }}</span>
-      </div>
+      <a class="lecture-folder-card-link" href="/lectures/{{ lec.id }}">
+        <span class="lecture-folder-title">{{ lec.title }}</span>
+        <span class="lecture-folder-footer">
+          <time class="muted lecture-folder-date" datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
+          <span class="status-badge status-{{ lec.status | replace('_', '-') }} lecture-folder-status">{{ lec.status }}</span>
+        </span>
+        {% if lec.disk_folder_name %}
+        <span class="lecture-folder-hint muted small-print">Folder: <span class="path-inline">{{ lec.disk_folder_name }}</span></span>
+        {% endif %}
+      </a>
     </li>
     {% endfor %}
   </ul>
+  {% elif total_lectures_in_course == 0 %}
+  <div class="empty-state empty-state--inline">
+    <p class="empty-state-title">No lectures in this course yet</p>
+    <p class="muted">Upload a file and choose this course name, or use Upload from the home page and select this course.</p>
+    <p><a class="button" href="/upload">Upload a lecture</a></p>
+  </div>
   {% else %}
-  <p class="muted">No lectures match these filters.</p>
+  <div class="empty-state empty-state--inline">
+    <p>No lectures match these filters.</p>
+    <p class="muted small-print"><a href="{{ clear_lecture_href }}">Clear lecture filters</a> to see all {{ total_lectures_in_course }} lecture{% if total_lectures_in_course != 1 %}s{% endif %}.</p>
+  </div>
   {% endif %}
 </section>
 
 <section class="concept-index-section course-concept-secondary">
-  <h2>Course concept index</h2>
+  <h2 class="section-heading section-heading--sub">Course concept index</h2>
   <p class="muted small-print">Concepts come from generated materials. Click a tag to focus one concept; search narrows the list.</p>
   <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
     <input type="hidden" name="lec_q" value="{{ lec_q or '' }}">
@@ -115,4 +143,5 @@
   <p class="muted">No concepts match these filters. Generate study materials or adjust the search.</p>
   {% endif %}
 </section>
+</div>
 {% endblock %}

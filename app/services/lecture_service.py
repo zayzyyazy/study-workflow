@@ -25,6 +25,15 @@ def count_lectures() -> int:
         return int(cur.fetchone()[0])
 
 
+def count_lectures_for_course(course_id: int) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM lectures WHERE course_id = ?",
+            (course_id,),
+        )
+        return int(cur.fetchone()[0])
+
+
 def count_lectures_by_status() -> dict[str, int]:
     with get_connection() as conn:
         cur = conn.execute(
