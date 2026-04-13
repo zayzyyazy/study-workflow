@@ -130,7 +130,7 @@ def list_lectures_for_course_filtered(
         conditions.append("status = ?")
         params.append(st)
 
-        sql = f"""
+    sql = f"""
         SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
         FROM lectures
         WHERE {' AND '.join(conditions)}
