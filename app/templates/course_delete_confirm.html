@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="crumb crumb-path" aria-label="Breadcrumb">
+  <a href="/">Home</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <a href="/courses/{{ course.id }}">{{ course.name }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <span class="crumb-current">Delete course</span>
+</nav>
+
+<div class="workspace-course workspace-course--polished">
+  <h1 class="page-workspace-title">Delete this course?</h1>
+
+  <div class="flash flash-error">
+    <strong>This cannot be undone.</strong> Deleting this course will permanently remove:
+    <ul style="margin: 0.5rem 0 0 1.25rem;">
+      <li>The course <strong>{{ course.name }}</strong> from the library</li>
+      <li>All {{ lecture_count }} lecture{% if lecture_count != 1 %}s{% endif %} and their database records</li>
+      <li>All generated artifacts and concept links</li>
+      <li>The course folder on disk (<code>courses/{{ course.slug }}/</code>)</li>
+    </ul>
+  </div>
+
+  <form method="post" action="/courses/{{ course.id }}/delete" class="stack-form" style="margin-top: 1.5rem;">
+    <label class="home-reset-check">
+      <input type="checkbox" name="confirm" value="1" required>
+      I understand this is permanent and cannot be undone
+    </label>
+    <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+      <button type="submit" class="button button-danger">Yes, delete this course</button>
+      <a href="/courses/{{ course.id }}" class="button button-secondary cancel-inline">Cancel — keep this course</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

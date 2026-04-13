@@ -192,6 +192,31 @@
         <button type="submit" class="button button-secondary button-small">Reset course study progress</button>
       </form>
     </details>
+
+    <details class="course-testing-reset">
+      <summary class="muted small-print">Rename this course</summary>
+      <form method="post" action="/courses/{{ course.id }}/rename" class="course-reset-form">
+        <label style="display:block; margin-bottom: 0.4rem;">
+          New name
+          <input type="text" name="new_name" value="{{ course.name }}" required maxlength="200"
+                 style="display:block; width: 100%; margin-top: 0.25rem;">
+        </label>
+        <p class="muted small-print" style="margin: 0.25rem 0 0.5rem;">
+          Only the display name changes. The folder on disk and URL slug stay the same.
+        </p>
+        <button type="submit" class="button button-secondary button-small">Save new name</button>
+      </form>
+    </details>
+
+    <details class="course-testing-reset">
+      <summary class="muted small-print" style="color: var(--color-danger, #c0392b);">Delete this course</summary>
+      <div style="border: 1px solid var(--color-danger, #c0392b); border-radius: 4px; padding: 0.75rem; margin-top: 0.5rem;">
+        <p class="small-print" style="margin: 0 0 0.5rem;">
+          Permanently removes this course, all its lectures, generated artifacts, and the folder on disk.
+        </p>
+        <a href="/courses/{{ course.id }}/confirm-delete" class="button button-danger button-small">Delete course…</a>
+      </div>
+    </details>
   </div>
 </details>
 

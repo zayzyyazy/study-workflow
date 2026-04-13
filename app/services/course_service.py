@@ -88,3 +88,27 @@ def create_course(name: str) -> dict[str, Any]:
         conn.commit()
         cid = cur.lastrowid
     return get_course_by_id(cid)  # type: ignore[return-value]
+
+
+def rename_course(course_id: int, new_name: str) -> tuple[bool, str]:
+    """
+    Update the course display name in the DB.
+
+    NOTE: The slug and the folder on disk are intentionally NOT changed.
+    Renaming the folder would require updating every lecture's source_file_path
+    and extracted_text_path — a risky migration with no rollback.
+    The safe approach is to update only the human-readable name here.
+    The URL (/courses/{id}) uses the numeric ID, so URLs are unaffected.
+    """
+    new_name = new_name.strip()
+    if not new_name:
+        return False, "Course name cannot be empty."
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE courses SET name = ? WHERE id = ?",
+            (new_name, course_id),
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            return False, "Course not found."
+    return True, f'Course renamed to "{new_name}".'

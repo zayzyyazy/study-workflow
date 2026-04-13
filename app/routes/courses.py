@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import course_service, lecture_service
+from app.services.course_delete import delete_course
 from app.services.storage_view import enrich_lecture_rows_for_course_ui
 from app.services.bulk_generation_service import run_bulk_generate_ready_in_course
 from app.services.course_index_service import aggregate_course_concepts_filtered
@@ -167,3 +168,65 @@ def post_bulk_generate(course_id: int) -> RedirectResponse:
             f"{s} skipped (not ready for generation)."
         )
     return RedirectResponse(url=f"/courses/{course_id}?notice={quote(msg)}", status_code=303)
+
+
+@router.post("/courses/{course_id}/rename", response_model=None)
+def post_rename_course(
+    course_id: int,
+    new_name: str = Form(...),
+) -> RedirectResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    ok, msg = course_service.rename_course(course_id, new_name)
+    if ok:
+        return RedirectResponse(
+            url=f"/courses/{course_id}?notice={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/courses/{course_id}?error={quote(msg)}",
+        status_code=303,
+    )
+
+
+@router.get("/courses/{course_id}/confirm-delete", response_class=HTMLResponse)
+def get_confirm_delete_course(request: Request, course_id: int) -> HTMLResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    lecture_count = lecture_service.count_lectures_for_course(course_id)
+    return templates.TemplateResponse(
+        request,
+        "course_delete_confirm.html",
+        {
+            "title": f"Delete {course['name']}",
+            "course": course,
+            "lecture_count": lecture_count,
+        },
+    )
+
+
+@router.post("/courses/{course_id}/delete", response_model=None)
+def post_delete_course(
+    course_id: int,
+    confirm: str | None = Form(default=None),
+) -> RedirectResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if confirm != "1":
+        return RedirectResponse(
+            url=f"/courses/{course_id}?error={quote('Check the box to confirm deletion.')}",
+            status_code=303,
+        )
+    ok, msg = delete_course(course_id)
+    if ok:
+        return RedirectResponse(
+            url=f"/?notice={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/courses/{course_id}?error={quote(msg)}",
+        status_code=303,
+    )
