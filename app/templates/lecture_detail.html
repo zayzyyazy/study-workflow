@@ -90,11 +90,11 @@
   <p class="muted small-print section-lede">From generated materials (deterministic extract). Shared terms also appear on the <a href="/courses/{{ lecture.course_id }}">course concept index</a>.</p>
   {% if concepts_ui.total_stored == 0 %}
   <p class="concepts-empty muted">No concepts indexed yet. Generate study materials to extract terms and headings.</p>
-  {% elif concepts_ui.all_filtered_out %}
+  {% elif concepts_ui["all_filtered_out"] %}
   <p class="concepts-empty muted">Nothing to show after quality filtering. Try regenerating study materials, or adjust the source glossaries.</p>
   {% else %}
   <ul class="concept-tags concept-tags--compact">
-    {% for c in concepts_ui.items %}
+    {% for c in concepts_ui["items"] %}
     <li>{{ c.name }}</li>
     {% endfor %}
   </ul>
