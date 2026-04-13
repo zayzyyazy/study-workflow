@@ -1,9 +1,9 @@
 """Lecture detail and lifecycle actions."""
 
 import io
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -25,6 +25,20 @@ templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
 
 PREVIEW_CHARS = 6000
+
+
+def _safe_redirect_target(request: Request, fallback: str) -> str:
+    ref = (request.headers.get("referer") or "").strip()
+    if not ref:
+        return fallback
+    try:
+        base = urlparse(str(request.base_url))
+        r = urlparse(ref)
+        if r.scheme == base.scheme and r.netloc == base.netloc:
+            return ref
+    except Exception:
+        pass
+    return fallback
 
 
 def _lecture_redirect(lecture_id: int, notice: str | None = None, error: str | None = None) -> RedirectResponse:
@@ -84,8 +98,27 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
             "generation_sections": generation_sections,
             "concepts_ui": concepts_ui,
             "lecture_analysis": lecture_analysis,
+            "study_progress_states": lecture_service.STUDY_PROGRESS_STATES,
         },
     )
+
+
+@router.post("/lectures/{lecture_id}/study-progress", response_model=None)
+def post_study_progress(
+    request: Request,
+    lecture_id: int,
+    study_progress: str = Form(...),
+) -> RedirectResponse:
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    if not lecture_service.set_lecture_study_progress(lecture_id, study_progress):
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Could not update study progress.')}",
+            status_code=303,
+        )
+    target = _safe_redirect_target(request, f"/lectures/{lecture_id}")
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.post("/lectures/{lecture_id}/re-extract", response_model=None)

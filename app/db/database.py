@@ -66,6 +66,18 @@ def _migrate_legacy_statuses(conn: sqlite3.Connection) -> None:
     )
 
 
+def _ensure_study_progress_column(conn: sqlite3.Connection) -> None:
+    """Add study_progress for user study state (not generation pipeline)."""
+    cur = conn.execute("PRAGMA table_info(lectures)")
+    names = {str(row[1]) for row in cur.fetchall()}
+    if "study_progress" not in names:
+        conn.execute(
+            """
+            ALTER TABLE lectures ADD COLUMN study_progress TEXT NOT NULL DEFAULT 'not_started'
+            """
+        )
+
+
 def init_db() -> None:
     ensure_directories()
     db_path: Path = DATABASE_PATH
@@ -73,6 +85,7 @@ def init_db() -> None:
     with sqlite3.connect(db_path) as conn:
         conn.executescript(SCHEMA)
         _migrate_legacy_statuses(conn)
+        _ensure_study_progress_column(conn)
         conn.commit()
 
 

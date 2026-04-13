@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="workspace-home">
+<div class="workspace-home workspace-home--simple">
+{% if notice %}
+<p class="flash flash-success">{{ notice }}</p>
+{% endif %}
 {% if error %}
 <p class="flash flash-error">{{ error }}</p>
 {% endif %}
@@ -9,87 +12,39 @@
   <span class="crumb-current">Home</span>
 </nav>
 <h1 class="page-workspace-title">My study space</h1>
-<p class="lead workspace-lede">
-  Open a course folder to work through lectures and study materials.
+<p class="lead workspace-lede workspace-lede--simple">
+  Pick a course to continue — your folders, your pace.
 </p>
-
-<section class="workspace-toolbar-row" aria-label="Overview and search">
-  <div class="dashboard-stats dashboard-stats--compact">
-    <div class="stat-grid">
-      <div class="stat-card"><span class="stat-value">{{ course_count }}</span><span class="stat-label">courses</span></div>
-      <div class="stat-card"><span class="stat-value">{{ lecture_count }}</span><span class="stat-label">lectures</span></div>
-    </div>
-    {% if status_counts %}
-    <p class="muted small-print stat-by-status workspace-status-strip">Across the library:
-      {% for s, n in status_counts.items() %}
-      <span class="status-pill"><span class="status-badge status-{{ s | replace('_', '-') }}">{{ s }}</span> {{ n }}</span>{% if not loop.last %} · {% endif %}
-      {% endfor %}
-    </p>
-    {% endif %}
-  </div>
-  <form class="filter-toolbar home-search workspace-search" method="get" action="/">
-    <label class="search-label">Search lectures</label>
-    <div class="search-row">
-      <input type="search" name="q" value="{{ search_q or '' }}" placeholder="Title or course name…" class="search-input">
-      <button type="submit" class="button">Search</button>
-      {% if search_q %}
-      <a href="/" class="button button-secondary">Clear</a>
-      {% endif %}
-    </div>
-  </form>
-</section>
-
-{% if search_q %}
-<section class="workspace-section workspace-section--search" aria-labelledby="search-results-heading">
-  <h2 id="search-results-heading" class="section-heading">Search results</h2>
-  <p class="muted section-sub">{{ search_hits | length }} match{% if search_hits | length != 1 %}es{% endif %} for “{{ search_q }}”</p>
-  {% if search_hits %}
-  <ul class="card-list home-lecture-cards">
-    {% for lec in search_hits %}
-    <li class="home-lecture-card">
-      <div class="home-lecture-head">
-        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
-      </div>
-      <p class="home-lecture-meta muted">
-        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
-        <span class="home-lecture-sep">·</span>
-        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
-      </p>
-      {% if lec.disk_folder_name %}
-      <p class="home-lecture-folder muted small-print">Storage: <span class="path-inline">{{ lec.disk_folder_name }}</span></p>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <div class="empty-state empty-state--inline">
-    <p>No lectures matched. Try different words or open a course below.</p>
-  </div>
-  {% endif %}
-</section>
+{% if study_totals.total > 0 %}
+<p class="home-study-summary muted">
+  <span class="home-study-summary-strong">{{ study_totals.done }}</span> of {{ study_totals.total }} lecture{% if study_totals.total != 1 %}s{% endif %} marked done
+</p>
 {% endif %}
 
-<section class="workspace-section workspace-section--primary" aria-labelledby="courses-heading">
-  <div class="section-header-row">
-    <h2 id="courses-heading" class="section-heading">Courses</h2>
-    <a class="button button-secondary button-small" href="/upload">Upload a lecture</a>
+<section class="workspace-section workspace-section--primary home-courses-main" aria-labelledby="courses-heading">
+  <div class="section-header-row section-header-row--minimal">
+    <h2 id="courses-heading" class="section-heading visually-hidden">Your courses</h2>
   </div>
   {% if courses %}
   <ul class="course-dashboard-grid">
     {% for c in courses %}
     <li>
-      <a class="course-folder-card" href="/courses/{{ c.id }}">
+      <a class="course-folder-card course-folder-card--accent-{{ (c.id % 5) }}" href="/courses/{{ c.id }}">
         <span class="course-folder-icon" aria-hidden="true"></span>
         <span class="course-folder-name">{{ c.name }}</span>
         <span class="course-folder-meta muted">
           {% if c.lecture_count %}
           {{ c.lecture_count }} lecture{% if c.lecture_count != 1 %}s{% endif %}
+          {% if c.study_done_count is defined and c.study_done_count == c.lecture_count %}
+          · <span class="course-folder-done">All done</span>
+          {% elif c.study_done_count %}
+          · <span class="course-folder-progress">{{ c.study_done_count }}/{{ c.lecture_count }} done</span>
+          {% endif %}
           {% if c.last_lecture_at %}
-          · Last activity <time datetime="{{ c.last_lecture_at }}">{{ c.last_lecture_at }}</time>
+          <span class="course-folder-when"> · Last activity <time datetime="{{ c.last_lecture_at }}">{{ c.last_lecture_at }}</time></span>
           {% endif %}
           {% else %}
-          No lectures yet — add one from Upload
+          Empty — open to add lectures
           {% endif %}
         </span>
       </a>
@@ -97,65 +52,32 @@
     {% endfor %}
   </ul>
   {% else %}
-  <div class="empty-state">
+  <div class="empty-state empty-state--home">
     <p class="empty-state-title">No courses yet</p>
-    <p class="muted">Upload a file and give it a course name. Your course will appear here as a folder you can reopen anytime.</p>
+    <p class="muted">Create one by uploading a file and naming your course. It will show up here as a folder.</p>
     <p><a class="button" href="/upload">Upload a lecture</a></p>
   </div>
   {% endif %}
 </section>
 
-<section class="workspace-section workspace-section--secondary" aria-labelledby="attention-heading">
-  <h2 id="attention-heading" class="section-heading section-heading--sub">Needs attention</h2>
-  <p class="muted small-print section-sub">Extraction failed, generation failed, or ready to generate (not yet run).</p>
-  {% if needs_attention %}
-  <ul class="card-list home-lecture-cards">
-    {% for lec in needs_attention %}
-    <li class="home-lecture-card">
-      <div class="home-lecture-head">
-        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
-      </div>
-      <p class="home-lecture-meta muted">
-        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
-        <span class="home-lecture-sep">·</span>
-        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
-      </p>
-      {% if lec.disk_folder_name %}
-      <p class="home-lecture-folder muted small-print">Storage: <span class="path-inline">{{ lec.disk_folder_name }}</span></p>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted empty-state--soft">Nothing needs your attention right now.</p>
-  {% endif %}
-</section>
+<p class="home-upload-foot muted">
+  <a href="/upload">Add a lecture</a>
+  <span class="home-upload-sep">·</span>
+  New material lands in the course you choose.
+</p>
 
-<section class="workspace-section workspace-section--secondary" aria-labelledby="recent-heading">
-  <h2 id="recent-heading" class="section-heading section-heading--sub">Recent lectures</h2>
-  {% if recent_lectures %}
-  <ul class="card-list home-lecture-cards">
-    {% for lec in recent_lectures %}
-    <li class="home-lecture-card">
-      <div class="home-lecture-head">
-        <a class="home-lecture-title" href="/lectures/{{ lec.id }}">{{ lec.title }}</a>
-        <span class="status-badge status-{{ lec.status | replace('_', '-') }} home-lecture-status">{{ lec.status }}</span>
-      </div>
-      <p class="home-lecture-meta muted">
-        <a href="/courses/{{ lec.course_id }}">{{ lec.course_name }}</a>
-        <span class="home-lecture-sep">·</span>
-        <time datetime="{{ lec.created_at }}">{{ lec.created_at }}</time>
-      </p>
-      {% if lec.disk_folder_name %}
-      <p class="home-lecture-folder muted small-print">Storage: <span class="path-inline">{{ lec.disk_folder_name }}</span></p>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted empty-state--soft">No lectures uploaded yet. Start from Upload or pick a course above once you have one.</p>
-  {% endif %}
-</section>
+<details class="home-testing-tools">
+  <summary class="home-testing-summary muted small-print">Testing tools</summary>
+  <div class="home-testing-body">
+    <p class="muted small-print">Reset only your <strong>study progress</strong> (not started / in progress / done). Lectures and files are unchanged.</p>
+    <form method="post" action="/reset-study-progress" class="home-reset-form" onsubmit="return confirm('Reset study progress for ALL lectures to Not started?');">
+      <label class="home-reset-check">
+        <input type="checkbox" name="confirm" value="1" required>
+        I understand this resets only study marks
+      </label>
+      <button type="submit" class="button button-secondary button-small">Reset all lecture progress</button>
+    </form>
+  </div>
+</details>
 </div>
 {% endblock %}

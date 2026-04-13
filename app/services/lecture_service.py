@@ -18,6 +18,9 @@ KNOWN_LECTURE_STATUSES = (
     "generation_failed",
 )
 
+# User study progress (separate from pipeline `status` above)
+STUDY_PROGRESS_STATES = ("not_started", "in_progress", "done")
+
 
 def count_lectures() -> int:
     with get_connection() as conn:
@@ -32,6 +35,28 @@ def count_lectures_for_course(course_id: int) -> int:
             (course_id,),
         )
         return int(cur.fetchone()[0])
+
+
+def count_study_progress_in_course(course_id: int, progress: str) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT COUNT(*) FROM lectures
+            WHERE course_id = ? AND study_progress = ?
+            """,
+            (course_id, progress),
+        )
+        return int(cur.fetchone()[0])
+
+
+def study_progress_library_totals() -> dict[str, int]:
+    """Total lectures and how many marked done (for home summary)."""
+    with get_connection() as conn:
+        cur = conn.execute("SELECT COUNT(*) FROM lectures")
+        total = int(cur.fetchone()[0])
+        cur = conn.execute("SELECT COUNT(*) FROM lectures WHERE study_progress = 'done'")
+        done = int(cur.fetchone()[0])
+        return {"total": total, "done": done}
 
 
 def count_lectures_by_status() -> dict[str, int]:
@@ -106,7 +131,7 @@ def list_lectures_for_course_filtered(
         params.append(st)
 
     sql = f"""
-        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, created_at
+        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, created_at
         FROM lectures
         WHERE {' AND '.join(conditions)}
         ORDER BY created_at DESC
@@ -120,7 +145,7 @@ def list_recent_lectures(limit: int = 10) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.slug, l.status, l.created_at,
+            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.created_at,
                    l.source_file_name, l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -137,7 +162,7 @@ def list_lectures_for_course(course_id: int) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, created_at
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, created_at
             FROM lectures
             WHERE course_id = ?
             ORDER BY created_at DESC
@@ -152,7 +177,7 @@ def get_lecture_by_id(lecture_id: int) -> Optional[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.course_id, l.title, l.slug, l.source_file_name,
-                   l.source_file_path, l.extracted_text_path, l.status, l.created_at,
+                   l.source_file_path, l.extracted_text_path, l.status, l.study_progress, l.created_at,
                    c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
@@ -263,3 +288,35 @@ def update_lecture_status(lecture_id: int, status: str) -> None:
     with get_connection() as conn:
         conn.execute("UPDATE lectures SET status = ? WHERE id = ?", (status, lecture_id))
         conn.commit()
+
+
+def set_lecture_study_progress(lecture_id: int, progress: str) -> bool:
+    """Set user study progress. Returns False if invalid."""
+    if progress not in STUDY_PROGRESS_STATES:
+        return False
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE lectures SET study_progress = ? WHERE id = ?",
+            (progress, lecture_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def reset_all_study_progress() -> int:
+    """Set every lecture's study_progress to not_started. Returns rows updated."""
+    with get_connection() as conn:
+        cur = conn.execute("UPDATE lectures SET study_progress = 'not_started'")
+        conn.commit()
+        return int(cur.rowcount)
+
+
+def reset_study_progress_for_course(course_id: int) -> int:
+    """Reset study progress for lectures in one course."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE lectures SET study_progress = 'not_started' WHERE course_id = ?",
+            (course_id,),
+        )
+        conn.commit()
+        return int(cur.rowcount)

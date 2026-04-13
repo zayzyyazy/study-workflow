@@ -32,7 +32,8 @@ def list_courses_for_home_dashboard() -> list[dict[str, Any]]:
             """
             SELECT c.id, c.name, c.slug, c.created_at,
                    COUNT(l.id) AS lecture_count,
-                   MAX(l.created_at) AS last_lecture_at
+                   MAX(l.created_at) AS last_lecture_at,
+                   COALESCE(SUM(CASE WHEN l.study_progress = 'done' THEN 1 ELSE 0 END), 0) AS study_done_count
             FROM courses c
             LEFT JOIN lectures l ON l.course_id = c.id
             GROUP BY c.id

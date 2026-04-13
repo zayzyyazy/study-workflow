@@ -18,12 +18,31 @@
 
 <header class="lecture-workspace-header">
   <h1 class="page-workspace-title lecture-workspace-title">{{ lecture.title }}</h1>
-  <p class="muted lecture-workspace-sub">
+  <p class="lecture-workspace-sub lecture-workspace-sub--primary">
     <a href="/courses/{{ lecture.course_id }}">{{ lecture.course_name }}</a>
     <span class="course-workspace-sep">·</span>
     Added <time datetime="{{ lecture.created_at }}">{{ lecture.created_at }}</time>
-    <span class="course-workspace-sep">·</span>
-    <span class="lecture-header-status-wrap"><span class="status-badge status-{{ lecture.status | replace('_', '-') }}">{{ lecture.status }}</span></span>
+  </p>
+  <div class="lecture-study-header-row">
+    {% set sp = lecture.study_progress | default('not_started') %}
+    {% if sp == 'done' %}
+    <span class="study-progress-pill study-progress-pill--done study-progress-pill--large">Done</span>
+    {% elif sp == 'in_progress' %}
+    <span class="study-progress-pill study-progress-pill--active study-progress-pill--large">In progress</span>
+    {% else %}
+    <span class="study-progress-pill study-progress-pill--todo study-progress-pill--large">Not started</span>
+    {% endif %}
+    <form class="study-progress-quick study-progress-quick--header" method="post" action="/lectures/{{ lecture.id }}/study-progress">
+      <label class="study-progress-label" for="lecture-study-header-select">Your study progress</label>
+      <select id="lecture-study-header-select" name="study_progress" class="study-progress-select" onchange="this.form.submit()">
+        {% for s in study_progress_states %}
+        <option value="{{ s }}" {% if sp == s %}selected{% endif %}>{% if s == 'not_started' %}Not started{% elif s == 'in_progress' %}In progress{% else %}Done{% endif %}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <p class="muted small-print lecture-workspace-tech">
+    Processing: <span class="status-badge status-{{ lecture.status | replace('_', '-') }} lecture-tech-badge">{{ lecture.status }}</span>
   </p>
   {% if lecture_analysis %}
   <p class="muted small-print lecture-workspace-analysis">
@@ -90,11 +109,11 @@
   <p class="muted small-print section-lede">From generated materials (deterministic extract). Shared terms also appear on the <a href="/courses/{{ lecture.course_id }}">course concept index</a>.</p>
   {% if concepts_ui.total_stored == 0 %}
   <p class="concepts-empty muted">No concepts indexed yet. Generate study materials to extract terms and headings.</p>
-  {% elif concepts_ui["all_filtered_out"] %}
+  {% elif concepts_ui.all_filtered_out %}
   <p class="concepts-empty muted">Nothing to show after quality filtering. Try regenerating study materials, or adjust the source glossaries.</p>
   {% else %}
   <ul class="concept-tags concept-tags--compact">
-    {% for c in concepts_ui["items"] %}
+    {% for c in concepts_ui.items %}
     <li>{{ c.name }}</li>
     {% endfor %}
   </ul>

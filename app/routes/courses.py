@@ -3,7 +3,7 @@
 import io
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -13,7 +13,7 @@ from app.services.storage_view import enrich_lecture_rows_for_course_ui
 from app.services.bulk_generation_service import run_bulk_generate_ready_in_course
 from app.services.course_index_service import aggregate_course_concepts_filtered
 from app.services.export_zip_service import zip_course_export
-from app.services.lecture_service import KNOWN_LECTURE_STATUSES
+from app.services.lecture_service import KNOWN_LECTURE_STATUSES, STUDY_PROGRESS_STATES
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -84,6 +84,7 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
     notice = request.query_params.get("notice")
     err = request.query_params.get("error")
     total_lectures_in_course = lecture_service.count_lectures_for_course(course_id)
+    study_done_in_course = lecture_service.count_study_progress_in_course(course_id, "done")
     return templates.TemplateResponse(
         request,
         "course_detail.html",
@@ -92,6 +93,7 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "course": course,
             "lectures": lectures,
             "total_lectures_in_course": total_lectures_in_course,
+            "study_done_in_course": study_done_in_course,
             "notice": notice,
             "error": err,
             "concept_rows": concept_rows,
@@ -100,9 +102,32 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "concept_q": concept_q,
             "active_concept_id": only_concept_id,
             "lecture_statuses": KNOWN_LECTURE_STATUSES,
+            "study_progress_states": STUDY_PROGRESS_STATES,
             "clear_concept_href": clear_concept_href,
             "clear_lecture_href": clear_lecture_href,
         },
+    )
+
+
+@router.post("/courses/{course_id}/reset-study-progress", response_model=None)
+def post_reset_course_study_progress(
+    course_id: int,
+    confirm: str | None = Form(default=None),
+) -> RedirectResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if confirm != "1":
+        return RedirectResponse(
+            url=f"/courses/{course_id}?error="
+            + quote("Check the box to confirm resetting study progress for this course."),
+            status_code=303,
+        )
+    n = lecture_service.reset_study_progress_for_course(course_id)
+    return RedirectResponse(
+        url=f"/courses/{course_id}?notice="
+        + quote(f"Study progress reset for {n} lecture(s) in this course."),
+        status_code=303,
     )
 
 
