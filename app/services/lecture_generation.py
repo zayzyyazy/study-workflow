@@ -153,20 +153,14 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
             )
         if step == "teach_me" and wc:
             bullets.append("- Lernen/Erklären: Code in fenced Blocks zeigen, wenn die Vorlesung Code nutzt.")
-        if step == "worked_examples" and wm:
+        if step == "examples_and_solutions" and wm:
             bullets.append(
                 "- Ausgearbeitete Beispiele: jeder Rechenschritt mit `$...$`; kurz begründen, warum der Schritt folgt."
             )
-        if step == "worked_examples" and wc:
+        if step == "examples_and_solutions" and wc:
             bullets.append(
                 "- Ausgearbeitete Beispiele: Code schrittweise oder blockweise erklären; Einrückung beibehalten."
             )
-        if step == "mistakes_and_checks" and wm:
-            bullets.append(
-                "- Fehler/Checks: typische Rechenfehler oder Symbolverwechslungen nennen; Selbstfragen mit klaren `$...$` wo nötig."
-            )
-        if step == "mistakes_and_checks" and wc:
-            bullets.append("- Fehler/Checks: API-/Namensverwechslungen; `Backticks` für Identifier.")
         if step == "revision_sheet" and wm:
             bullets.append(
                 "- Merkblatt: Kernaussagen und Regeln in `$...$`; nur zum Auswendigen, was die Vorlesung wirklich verlangt."
@@ -193,20 +187,14 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
         )
     if step == "teach_me" and wc:
         bullets_en.append("- Teach Me: use fenced code blocks when the lecture uses code.")
-    if step == "worked_examples" and wm:
+    if step == "examples_and_solutions" and wm:
         bullets_en.append(
             "- Worked examples: show each step; justify steps briefly; use `$...$` for all math."
         )
-    if step == "worked_examples" and wc:
+    if step == "examples_and_solutions" and wc:
         bullets_en.append(
             "- Worked examples: walk through code block by block or line by line where helpful; preserve indentation."
         )
-    if step == "mistakes_and_checks" and wm:
-        bullets_en.append(
-            "- Mistakes & checks: call out common algebra/symbol confusion; self-check questions with math in `$...$`."
-        )
-    if step == "mistakes_and_checks" and wc:
-        bullets_en.append("- Mistakes & checks: name API/identifier confusions; use `backticks` for identifiers.")
     if step == "revision_sheet" and wm:
         bullets_en.append(
             "- Revision sheet: compact formulas/rules in `$...$`; separate memorize vs understand."
@@ -253,6 +241,31 @@ def _system_prompt(a: LectureAnalysis) -> str:
 # --- Prompts: structured, predictable Markdown (language + profile via _system_prompt) ---
 
 
+def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
+    sys = _system_prompt(a)
+    if a.detected_language == "de":
+        extra = (
+            "Erstelle **Quick Overview** als kurze Orientierung vor allen Details.\n"
+            "- 5–9 Bullet-Points oder kurze Absätze, klar und ohne Füllsätze.\n"
+            "- Beantworte: Worum geht es? Was ist die Hauptidee? Warum ist das wichtig?\n"
+            "- Beziehe den Überblick auf den tatsächlichen Vorlesungsinhalt; keine generischen Aussagen.\n"
+            "- Wenn in der Vorlesung erkennbar: kurz die Verbindung zu angrenzenden Themen nennen.\n"
+            "- Keine langen Definitionen und keine ausgearbeiteten Beispiele hier.\n\n"
+            "Oberste Überschrift exakt: ## Quick Overview"
+        )
+    else:
+        extra = (
+            "Produce **Quick Overview** as the short orientation layer before details.\n"
+            "- 5–9 concise bullets or short paragraphs; no generic filler.\n"
+            "- Answer: what is this lecture about, what is the big idea, and why does it matter.\n"
+            "- Ground statements in the actual lecture text, not generic textbook claims.\n"
+            "- If inferable from the lecture, mention nearby/related topics briefly.\n"
+            "- Do not expand into full definitions or worked examples here.\n\n"
+            "Top heading must be exactly: ## Quick Overview"
+        )
+    return sys, extra
+
+
 def _prompt_glossary(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
@@ -279,93 +292,78 @@ def _prompt_teach_me(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Lernen und Verstehen** — das ist die Hauptdatei zum Durcharbeiten.\n"
-            "Schreibe wie ein Tutor, nicht wie ein Abstract-Generator.\n\n"
-            "Teile die Vorlesung in **Hauptthemen** (je ein Abschnitt mit ##). Zu **jedem** Hauptthema mindestens:\n"
-            "- **Intuition**: verständliche Erklärung in eigenen Worten.\n"
-            "- **Formal**: Definition oder Regel, falls in der Vorlesung vorhanden (korrekt formatiert).\n"
-            "- **Warum wichtig**: Kurz, wozu man das braucht.\n"
-            "- **Erkennen**: Woran man das in einer Aufgabe oder Prüfung erkennt.\n"
-            "- **Vorgehen**: Schritt-für-Schritt, wie man es anwendet.\n"
-            "- **Einfaches Beispiel**: ein kurzes, durchgerechnetes oder durchgesprochenes Mini-Beispiel aus der Vorlesung.\n"
-            "- **Typischer Fehler**: ein häufiger Fehler zu genau diesem Thema (nur wenn plausibel).\n\n"
-            "Oberste Überschrift exakt: ## Lernen und Verstehen\n"
-            "Keine oberflächliche „Zusammenfassung“ — Ziel ist echtes Lernen."
+            "Erstelle **Teach Me** als Haupt-Lernteil.\n"
+            "Schreibe wie ein Tutor und richte die Tiefe pro Thema an der Vorlesungs-Tiefe aus.\n\n"
+            "Struktur:\n"
+            "- Oberste Überschrift exakt: ## Teach Me\n"
+            "- Danach Hauptthemen mit ##-Überschriften.\n"
+            "- Unterthemen bei Bedarf mit ###.\n\n"
+            "Adaptive Tiefe (wichtig):\n"
+            "- Wenn Thema nur kurz erwähnt: 3-5 knappe Bullet-Points reichen.\n"
+            "- Wenn Thema zentral/wiederholt/formalisiert: deutlich tiefer erklären (Intuition + formal + Anwendung + typische Verwechslung).\n"
+            "- Wenn Thema strukturell zentral mit Definitionen/Notation/Beispielen: besonders gründlich und mit klaren Zusammenhängen zu anderen Themen.\n"
+            "- Nicht jedes Thema gleich lang behandeln.\n\n"
+            "Inhalt pro Thema (wo passend):\n"
+            "- Intuition in klarer Sprache.\n"
+            "- Formale Bedeutung/Regel/Notation aus der Vorlesung.\n"
+            "- Warum es wichtig ist.\n"
+            "- Wie man es in Aufgaben erkennt und anwendet.\n"
+            "- Typische Falle nur wenn plausibel.\n\n"
+            "Redundanzregeln:\n"
+            "- Keine Glossar-Definitionen in voller Länge wiederholen.\n"
+            "- Nur Inhalte aus der Vorlesung nutzen; keine künstliche Curriculum-Erweiterung."
             + _artifact_technical_addon(a, "teach_me")
         )
     else:
         extra = (
-            "Produce **Teach Me** — this is the main file to study from.\n"
-            "Write like a tutor or teaching assistant, not like a generic summarizer.\n\n"
-            "Split the lecture into **main topics** (one ## section each). For **each** main topic include at least:\n"
-            "- **Intuition**: plain-language explanation.\n"
-            "- **Formal**: definition or rule if the lecture has one (formatted correctly).\n"
-            "- **Why it matters**: briefly, why you care.\n"
-            "- **How to recognize it**: cues you would see in a task or exam.\n"
-            "- **How to use it**: step-by-step procedure.\n"
-            "- **One simple example**: a small worked walkthrough grounded in the lecture.\n"
-            "- **One common mistake**: a typical pitfall for this topic (only if plausible).\n\n"
-            "Top heading must be exactly: ## Teach Me\n"
-            "Avoid thin high-level summary — optimize for learning and practice."
+            "Produce **Teach Me** as the main learning file.\n"
+            "Write like a tutor and adapt depth to topic importance in this lecture.\n\n"
+            "Structure:\n"
+            "- Top heading must be exactly: ## Teach Me\n"
+            "- Then main topics with ## headings.\n"
+            "- Use ### only when it helps readability.\n\n"
+            "Adaptive depth (critical):\n"
+            "- Briefly mentioned/supporting topics: keep short and concise.\n"
+            "- Core/repeated/formalized topics: explain in more depth (intuition + formal meaning + usage cues + pitfalls).\n"
+            "- Deep structural topics with heavy lecture emphasis: provide the deepest treatment and relationships to nearby concepts.\n"
+            "- Do not force equal depth for every topic.\n\n"
+            "Per-topic content when relevant:\n"
+            "- Intuition in plain language.\n"
+            "- Formal definition/rule/notation from the lecture.\n"
+            "- Why it matters.\n"
+            "- How to recognize and apply it.\n"
+            "- Common confusion only if plausible.\n\n"
+            "Anti-repetition rules:\n"
+            "- Do not restate glossary definitions in full.\n"
+            "- Stay grounded in lecture scope; avoid inventing a broader curriculum."
             + _artifact_technical_addon(a, "teach_me")
         )
     return sys, extra
 
 
-def _prompt_worked_examples(a: LectureAnalysis) -> tuple[str, str]:
+def _prompt_examples_and_solutions(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Ausgearbeitete Beispiele**.\n"
-            "Das ist die Übungsdatei: echte Anwendung, nicht nur Definitionen wiederholen.\n\n"
-            "Wenn die Vorlesung Mathe/Technik/Code/Prozeduren enthält:\n"
-            "- Mindestens **drei** ausgearbeitete Beispiele (wenn die Quelle wenig hergibt, so viele wie sinnvoll möglich).\n"
-            "- Jedes Beispiel: **Aufgabenstellung / Ziel** → **Schritt für Schritt** → **jeder Schritt kurz begründet**.\n"
-            "- Keine erfundenen Zahlen oder Regeln; nur an der Vorlesung ausrichten.\n\n"
-            "Wenn die Vorlesung eher konzeptuell/nicht-prozedural ist:\n"
-            "- Mindestens **zwei** konkrete Anwendungsfälle, Szenarien oder durchgesprochene Fälle mit klaren Schritten.\n\n"
-            "Oberste Überschrift exakt: ## Ausgearbeitete Beispiele"
-            + _artifact_technical_addon(a, "worked_examples")
+            "Erstelle **Examples and Solutions** als Anwendungs-Teil.\n"
+            "- Fokus auf Anwenden und Lösen, nicht auf Definitionen wiederholen.\n"
+            "- Nutze bevorzugt Muster/Beispiele aus der Vorlesung, wenn erkennbar.\n"
+            "- Für technische/mathematische Inhalte: schrittweise Lösung mit knapper Begründung je Schritt.\n"
+            "- Für konzeptuelle Inhalte: konkrete Fallanwendungen/Interpretationen mit klarer Argumentation.\n"
+            "- Umfang an Vorlesungstiefe anpassen: Kern-Themen dürfen mehrere Beispiele haben, Nebenpunkte nur kurz.\n\n"
+            "Oberste Überschrift exakt: ## Examples and Solutions"
+            + _artifact_technical_addon(a, "examples_and_solutions")
         )
     else:
         extra = (
-            "Produce **Worked Examples**.\n"
-            "This is the practice file: real application, not restating definitions.\n\n"
-            "If the lecture is math/technical/code/procedural:\n"
-            "- Include at least **three** worked examples (or as many as the source reasonably supports).\n"
-            "- Each example: **problem / goal** → **step by step** → **brief justification for each step**.\n"
-            "- Do not invent numbers or rules; stay faithful to the lecture.\n\n"
-            "If the lecture is mostly conceptual / non-procedural:\n"
-            "- Include at least **two** applied scenarios, cases, or concrete walkthroughs with clear steps.\n\n"
-            "Top heading must be exactly: ## Worked Examples"
-            + _artifact_technical_addon(a, "worked_examples")
-        )
-    return sys, extra
-
-
-def _prompt_mistakes_and_checks(a: LectureAnalysis) -> tuple[str, str]:
-    sys = _system_prompt(a)
-    if a.detected_language == "de":
-        extra = (
-            "Erstelle **Fehler, Stolpersteine und Checks**.\n"
-            "- Häufige Fehler und **verwechselbare** ähnliche Begriffe/Notationen aus dieser Vorlesung.\n"
-            "- Grenzfälle / Sonderfälle, wenn die Quelle sie erwähnt.\n"
-            "- **Selbst-Check-Fragen** (nummerierte Liste) mit kurzen Hinweisen zur Antwortprüfung — keine Lösungen aus dem Nichts erfinden.\n"
-            "- Wie man prüft, ob man ein Ergebnis oder Verständnis richtig hat (Checkliste).\n"
-            "- Nur Bezug zu dieser Vorlesung; keine anderen Kurse.\n\n"
-            "Oberste Überschrift exakt: ## Fehler und Checks"
-            + _artifact_technical_addon(a, "mistakes_and_checks")
-        )
-    else:
-        extra = (
-            "Produce **Mistakes and Checks**.\n"
-            "- Common mistakes and **confusable** look-alikes from this lecture.\n"
-            "- Edge cases if the source mentions them.\n"
-            "- **Self-check questions** (numbered) with brief guidance on how to verify an answer — do not invent solutions.\n"
-            "- How to sanity-check understanding or a result (short checklist).\n"
-            "- Within this lecture only; do not reference other courses.\n\n"
-            "Top heading must be exactly: ## Mistakes and Checks"
-            + _artifact_technical_addon(a, "mistakes_and_checks")
+            "Produce **Examples and Solutions** as the application layer.\n"
+            "- Focus on doing/applying, not repeating definitions.\n"
+            "- Prefer example patterns that are clearly present in the lecture.\n"
+            "- For technical/math/code content: step-by-step solutions with brief reasoning per step.\n"
+            "- For conceptual lectures: concrete applied cases with clear interpretation steps.\n"
+            "- Adapt depth to lecture emphasis: major topics may have multiple examples, side topics stay concise.\n\n"
+            "Top heading must be exactly: ## Examples and Solutions"
+            + _artifact_technical_addon(a, "examples_and_solutions")
         )
     return sys, extra
 
@@ -374,12 +372,12 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle ein **Merkblatt / Repetition** — kurz, prüfungsnah, gut skimmbar.\n"
-            "- Wichtigste Regeln, Formeln, Fakten (Formeln in `$...$` / `$$...$$`).\n"
-            "- Klar trennen: **auswendig** vs **verstehen**.\n"
-            "- Bullet-Listen; keine langen Absätze.\n"
-            "- Keine neuen Inhalte; nur Stoff aus der Vorlesung.\n\n"
-            "Oberste Überschrift exakt: ## Merkblatt"
+            "Erstelle **Revision Sheet** als kurze Wiederholungsseite.\n"
+            "- Kurz, skimmbar, prüfungsnah.\n"
+            "- Trenne klar: **Memorize** vs **Understand**.\n"
+            "- Fokus auf Kernregeln/Symbole/Formeln/Fakten aus der Vorlesung.\n"
+            "- Keine langen Erklärungen und keine neuen Themen.\n\n"
+            "Oberste Überschrift exakt: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
         )
     else:
@@ -398,10 +396,10 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
 GENERATION_STEPS: list[
     tuple[str, str, Callable[[LectureAnalysis], tuple[str, str]], int]
 ] = [
-    ("glossary", "01_glossary.md", _prompt_glossary, 4096),
-    ("teach_me", "02_teach_me.md", _prompt_teach_me, 8192),
-    ("worked_examples", "03_worked_examples.md", _prompt_worked_examples, 8192),
-    ("mistakes_and_checks", "04_mistakes_and_checks.md", _prompt_mistakes_and_checks, 6144),
+    ("quick_overview", "01_quick_overview.md", _prompt_quick_overview, 3072),
+    ("glossary", "02_glossary.md", _prompt_glossary, 4096),
+    ("teach_me", "03_teach_me.md", _prompt_teach_me, 8192),
+    ("examples_and_solutions", "04_examples_and_solutions.md", _prompt_examples_and_solutions, 8192),
     ("revision_sheet", "05_revision_sheet.md", _prompt_revision_sheet, 6144),
 ]
 

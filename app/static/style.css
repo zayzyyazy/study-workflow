@@ -956,6 +956,49 @@ button:disabled {
 .generated-materials .md-output {
   line-height: 1.62;
 }
+.generated-materials .gen-section-quick-overview,
+.generated-materials .gen-section-teach-me {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+}
+.generated-materials .gen-section-glossary,
+.generated-materials .gen-section-revision-sheet {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+.generated-materials .gen-section-examples-and-solutions {
+  background: #fff;
+  border-left: 3px solid #cbd5e1;
+  padding-left: 1rem;
+}
+.teachme-subtoc {
+  margin: 0.25rem 0 0.9rem 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 8px;
+}
+.teachme-subtoc-label {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1e3a8a;
+  margin-bottom: 0.25rem;
+}
+.teachme-subtoc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+.teachme-subtoc-link {
+  font-size: 0.86rem;
+}
 
 .lecture-section--materials-primary.generated-materials {
   margin-top: 2rem;

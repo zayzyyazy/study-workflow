@@ -7,11 +7,11 @@ from typing import Optional
 
 # New study-pack files (primary). Values are fallbacks tried in order if primary missing (old lectures).
 LEGACY_FALLBACKS: dict[str, tuple[str, ...]] = {
-    "glossary": ("01_glossary.md",),
-    "teach_me": ("02_teach_me.md", "02_summary.md", "03_topic_explanations.md"),
-    "worked_examples": ("03_worked_examples.md", "04_deep_dive.md"),
-    "mistakes_and_checks": ("04_mistakes_and_checks.md", "05_connections.md"),
-    "revision_sheet": ("05_revision_sheet.md", "02_summary.md"),
+    "quick_overview": ("01_quick_overview.md", "02_summary.md"),
+    "glossary": ("02_glossary.md", "01_glossary.md"),
+    "teach_me": ("03_teach_me.md", "02_teach_me.md", "03_topic_explanations.md"),
+    "examples_and_solutions": ("04_examples_and_solutions.md", "03_worked_examples.md", "04_deep_dive.md"),
+    "revision_sheet": ("05_revision_sheet.md", "05_connections.md", "02_summary.md"),
     "study_pack": ("06_study_pack.md",),
 }
 
@@ -35,16 +35,23 @@ def build_study_pack_markdown(outputs_dir: Path) -> str:
     Concatenate primary study-pack sections into one Markdown file (no LLM).
     Skips missing sections.
     """
-    sections: list[tuple[str, str]] = [
-        ("01_glossary.md", "Glossary"),
-        ("02_teach_me.md", "Teach Me"),
-        ("03_worked_examples.md", "Worked Examples"),
-        ("04_mistakes_and_checks.md", "Mistakes and Checks"),
-        ("05_revision_sheet.md", "Revision Sheet"),
+    sections: list[tuple[tuple[str, ...], str]] = [
+        (("01_quick_overview.md", "02_summary.md"), "Quick Overview"),
+        (("02_glossary.md", "01_glossary.md"), "Glossary"),
+        (("03_teach_me.md", "02_teach_me.md"), "Teach Me"),
+        (("04_examples_and_solutions.md", "03_worked_examples.md"), "Examples and Solutions"),
+        (("05_revision_sheet.md",), "Revision Sheet"),
     ]
     chunks: list[str] = []
-    for fname, title in sections:
-        p = outputs_dir / fname
+    for candidates, title in sections:
+        p: Optional[Path] = None
+        for fname in candidates:
+            candidate = outputs_dir / fname
+            if candidate.is_file():
+                p = candidate
+                break
+        if p is None:
+            continue
         if not p.is_file():
             continue
         body = p.read_text(encoding="utf-8", errors="replace").strip()

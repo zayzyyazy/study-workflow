@@ -138,10 +138,16 @@
   {% endif %}
 
   {% for sec in generation_sections %}
-  <article class="gen-section" id="gen-{{ sec.artifact_type }}">
+  <article class="gen-section gen-section-{{ sec.artifact_type | replace('_', '-') }}" id="gen-{{ sec.artifact_type }}">
     <h3 class="gen-section-title">{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
+    {% if sec.artifact_type == "teach_me" %}
+    <nav class="teachme-subtoc" id="teachme-subtoc" hidden>
+      <span class="teachme-subtoc-label">Teach Me topics:</span>
+      <div class="teachme-subtoc-links" id="teachme-subtoc-links"></div>
+    </nav>
+    {% endif %}
     {% if sec.html %}
-    <div class="md-output">{{ sec.html | safe }}</div>
+    <div class="md-output" id="gen-content-{{ sec.artifact_type }}">{{ sec.html | safe }}</div>
     {% else %}
     <div class="placeholder-inline muted">Not generated yet. Use <strong>Generate study materials</strong> when extraction is ready.</div>
     {% endif %}
@@ -272,6 +278,33 @@
       });
     }
   });
+})();
+
+(function () {
+  var root = document.getElementById("gen-content-teach_me");
+  var toc = document.getElementById("teachme-subtoc");
+  var links = document.getElementById("teachme-subtoc-links");
+  if (!root || !toc || !links) return;
+
+  var heads = root.querySelectorAll("h2, h3");
+  if (!heads || heads.length === 0) return;
+  var created = 0;
+  heads.forEach(function (h, idx) {
+    var txt = (h.textContent || "").trim();
+    if (!txt) return;
+    if (!h.id) {
+      h.id = "teachme-topic-" + idx;
+    }
+    var a = document.createElement("a");
+    a.className = "teachme-subtoc-link";
+    a.href = "#" + h.id;
+    a.textContent = txt;
+    links.appendChild(a);
+    created += 1;
+  });
+  if (created > 0) {
+    toc.hidden = false;
+  }
 })();
 </script>
 {% endblock %}

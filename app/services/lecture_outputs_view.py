@@ -10,10 +10,10 @@ from app.services.lecture_paths import lecture_root_from_source_relative
 from app.services.study_output_paths import resolve_existing_output
 
 SECTION_TITLES = {
+    "quick_overview": "Quick Overview",
     "glossary": "Glossary",
     "teach_me": "Teach Me",
-    "worked_examples": "Worked Examples",
-    "mistakes_and_checks": "Mistakes and Checks",
+    "examples_and_solutions": "Examples and Solutions",
     "revision_sheet": "Revision Sheet",
     "study_pack": "Study pack (single file)",
 }

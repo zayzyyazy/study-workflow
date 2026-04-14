@@ -14,10 +14,10 @@ from app.services.concept_quality import is_noise_concept
 
 # Must match primary output filenames (study pack is aggregate — not listed here)
 SOURCES = (
-    "01_glossary.md",
-    "02_teach_me.md",
-    "03_worked_examples.md",
-    "04_mistakes_and_checks.md",
+    "01_quick_overview.md",
+    "02_glossary.md",
+    "03_teach_me.md",
+    "04_examples_and_solutions.md",
     "05_revision_sheet.md",
 )
 
@@ -132,7 +132,7 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
         if "glossary" in fname.lower():
             add_many(_parse_glossary(text), mode="glossary")
         add_many(_parse_headings(text), mode="strict")
-        if "01_glossary" not in fname:
+        if "02_glossary" not in fname and "01_glossary" not in fname:
             add_many(_parse_bold(text), mode="strict")
 
     return order[:MAX_CONCEPTS]
