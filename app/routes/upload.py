@@ -31,7 +31,7 @@ def upload_form(request: Request, error: Optional[str] = None) -> HTMLResponse:
 @router.post("/upload", response_model=None)
 async def upload_post(
     request: Request,
-    lecture_title: str = Form(...),
+    lecture_title: str = Form(""),
     course_id: Optional[str] = Form(None),
     new_course_name: str = Form(""),
     file: UploadFile = File(...),
@@ -66,19 +66,6 @@ async def upload_post(
             status_code=400,
         )
 
-    title = (lecture_title or "").strip()
-    if not title:
-        return templates.TemplateResponse(
-            request,
-            "upload.html",
-            {
-                "title": "Upload lecture",
-                "courses": courses,
-                "error": "Lecture title is required.",
-            },
-            status_code=400,
-        )
-
     if not file.filename:
         return templates.TemplateResponse(
             request,
@@ -95,7 +82,7 @@ async def upload_post(
         lec = lecture_upload.create_lecture_from_upload(
             course_id=cid if not new_name else None,
             new_course_name=new_name if new_name else None,
-            lecture_title=title,
+            lecture_title=(lecture_title or "").strip(),
             original_filename=file.filename,
             file_obj=file.file,
         )

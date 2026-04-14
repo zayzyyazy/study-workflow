@@ -24,9 +24,10 @@
   <p class="hint">Pick an existing course <em>or</em> type a new course name (new name takes priority).</p>
 
   <label>
-    Lecture title <span class="req">*</span>
-    <input type="text" name="lecture_title" required placeholder="e.g. Week 1 — Vectors">
+    Lecture title (optional)
+    <input type="text" name="lecture_title" placeholder="Optional lecture title" autocomplete="off">
   </label>
+  <p class="hint">Leave title blank to auto-generate from the filename. New uploads are saved as <code>Lecture NN - Title</code> inside the selected course.</p>
 
   <label>
     File <span class="req">*</span>

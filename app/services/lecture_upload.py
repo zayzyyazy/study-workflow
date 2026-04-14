@@ -2,12 +2,54 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import BinaryIO, Optional
 
 from app.services import course_service, extraction_service, lecture_service, storage_service
 from app.services import lecture_meta
+from app.services.slugs import sanitize_folder_name
 from app.services.lecture_statuses import READY_AFTER_EXTRACTION
+
+
+def _clean_title_candidate(raw: str) -> str:
+    """
+    Make a readable title from a user string or filename stem.
+    Keeps words human-friendly without over-normalizing.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    s = re.sub(r"[_\-]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    if not s:
+        return ""
+
+    parts = s.split(" ")
+    # Drop noisy leading lecture/week markers so names like lecture_3_sets -> sets.
+    while parts and re.fullmatch(r"(lecture|lec|vorlesung|week|wk)\.?", parts[0], flags=re.I):
+        parts = parts[1:]
+        while parts and re.fullmatch(r"\d{1,3}", parts[0]):
+            parts = parts[1:]
+    s = " ".join(parts).strip()
+    if not s:
+        return ""
+
+    s = s.title()
+    # Keep titles reasonably short and filesystem-safe.
+    s = sanitize_folder_name(s, max_length=70)
+    return s
+
+
+def _derive_base_title(lecture_title: str, original_filename: str) -> str:
+    custom = _clean_title_candidate(lecture_title)
+    if custom:
+        return custom
+    stem = Path(original_filename or "").stem
+    from_filename = _clean_title_candidate(stem)
+    if from_filename:
+        return from_filename
+    return "Untitled Lecture"
 
 
 def create_lecture_from_upload(
@@ -22,9 +64,7 @@ def create_lecture_from_upload(
     Creates or picks a course, writes files under courses/, runs extraction, inserts lecture.
     Returns the lecture dict including 'id' for redirect.
     """
-    lecture_title = lecture_title.strip()
-    if not lecture_title:
-        raise ValueError("Lecture title is required.")
+    lecture_title = (lecture_title or "").strip()
 
     new_name = (new_course_name or "").strip()
     if new_name:
@@ -38,7 +78,9 @@ def create_lecture_from_upload(
 
     cid = int(course["id"])
     idx = lecture_service.lecture_index_for_course(cid)
-    folder_name = storage_service.build_lecture_directory_name(idx, lecture_title)
+    base_title = _derive_base_title(lecture_title, original_filename)
+    display_title = f"Lecture {idx:02d} - {base_title}"
+    folder_name = storage_service.build_lecture_directory_name(idx, base_title)
     course_folder = str(course["slug"])
 
     lecture_root, source_dir, _outputs = storage_service.ensure_lecture_paths(
@@ -68,7 +110,7 @@ def create_lecture_from_upload(
 
     lec = lecture_service.insert_lecture(
         course_id=cid,
-        title=lecture_title,
+        title=display_title,
         source_file_name=safe_name,
         source_file_path=source_rel,
         extracted_text_path=extracted_rel,
@@ -79,7 +121,7 @@ def create_lecture_from_upload(
         lecture_root,
         lecture_id=int(lec["id"]),
         course_name=course["name"],
-        lecture_title=lecture_title,
+        lecture_title=display_title,
         source_file_name=safe_name,
         source_rel_posix=source_rel,
         extracted_rel_posix=extracted_rel,
