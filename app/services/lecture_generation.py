@@ -941,6 +941,8 @@ def _topic_lessons_prose_instructions(a: LectureAnalysis) -> str:
             "  - **C — Anwendung/Fallen:** Schwerpunkt typische Verwechslungen oder Aufgabenlogik **nur** wenn die Quelle "
             "dafür Anker bietet.\n"
             "- **Ton:** sachlich, **quellenfixiert** — Sätze, die in **jede** Vorlesung passen, streichen.\n"
+            "- **Priorität:** Jede `###`-Lektion an die **Priorität** aus der Roadmap koppeln — **9–10** ausführlich, **4–7** "
+            "knapp, **1–3** minimal (**keine** gleiche Länge für alle).\n"
             "- Themen-Roadmap / Quick Overview **nicht** wiederholen.\n\n"
             "**Verboten:** identische `####`-Ketten in jeder Lektion; gleich lange Blöcke; Meta-Labels wie „Gewichtung“.\n"
             + org
@@ -963,6 +965,8 @@ def _topic_lessons_prose_instructions(a: LectureAnalysis) -> str:
         "  - **B — Compression:** more continuous prose, fewer subheads — what this block **actually does** in-unit.\n"
         "  - **C — Pitfalls / tasks:** emphasize confusions or task logic **only** when the source gives anchors.\n"
         "- **Tone:** source-tight — cut sentences that fit any course.\n"
+        "- **Priority:** Tie each `###` lesson to **Priority** from the roadmap — **9–10** expansive, **4–7** tight, "
+        "**1–3** minimal (**not** equal length for all).\n"
         "- Do not repeat the Topic Roadmap / Quick Overview.\n\n"
         "**Forbidden:** identical `####` chains in every lesson; equally long polished blocks.\n"
         + org_en
@@ -1176,6 +1180,8 @@ def _core_learning_strict_v2_block(a: LectureAnalysis, heading_block: str) -> st
             "**variierende** `####`-Unterpunkte (nicht dieselbe Schablone in jeder Lektion).\n"
             "- **Keine** glatten Recap-Paragraphen ohne vorlesungsspezifische Kanten.\n"
             "- **Übungen:** Lösungsdenken an **dieselben** Begriffe koppeln wie die Vorlesung.\n"
+            "- **Priorität 9–10:** Mehr Absätze, mehr Vernetzung/Fehlkanten **nur** quellnah — **nicht** bei 4–7 dasselbe "
+            "Volumen erzwingen.\n"
         )
         if hb:
             core += "\n**Gliederungsanker (Überschriften aus der Quelle):**\n\n```text\n" + hb + "\n```\n"
@@ -1192,6 +1198,8 @@ def _core_learning_strict_v2_block(a: LectureAnalysis, heading_block: str) -> st
         "**vary** `####` subheads (do not reuse the same scaffold every lesson).\n"
         "- **No** polished recap paragraphs without lecture-specific edges.\n"
         "- **Exercises:** tie reasoning to the **same** terms as the lecture.\n"
+        "- **Priority 9–10:** More paragraphs and linking/pitfalls **only** when source-grounded — **do not** force the same "
+        "volume on 4–7.\n"
     )
     if hb:
         core_en += "\n**Heading anchors from the source:**\n\n```text\n" + hb + "\n```\n"
@@ -1317,13 +1325,12 @@ def _prompt_topic_map(
             "in Topic-Lektionen** (andere Datei).\n\n"
             "**Erlaubt in dieser Datei nur:**\n"
             "- Oberste Überschrift exakt: `## Themen-Roadmap`\n"
-            "- **Ein** kurzer Einleitungsabsatz: **max. 3 Sätze** — worum es in der Einheit geht, **ohne** Begriffe zu "
-            "definieren und **ohne** Übungsdetails.\n"
-            "- Dann **4–9** Themenblöcke. **Pro Block exakt zwei Zeilen**, nicht mehr:\n"
+            "- **Einleitung:** **optional** — höchstens **ein Satz**, oder **ganz weglassen**, wenn die Themenliste schon "
+            "orientiert. **Kein** Mini-Essay, **keine** Übungsdetails.\n"
+            "- Dann **4–9** Themenblöcke. **Pro Block exakt zwei Zeilen** — **nichts** darunter:\n"
             "  `### [Themenname]`  \n"
             "  `**Priorität:** X/10`  \n"
-            "  (optional **eine** zusätzliche Zeile `**Hinweis:** …` nur bei **höchster** Priorität 9–10: **max. 10 Wörter**, "
-            "z. B. „zentrale Prüfungsidee“ — **kein** Mini-Essay)\n\n"
+            "**Kein** `Hinweis:`-, **kein** Zusatzfeld — Orientierung passiert in **einer Zeile** pro Thema.\n\n"
             "**Strikt verboten** unter jedem Thema: **„Was es ist“**, **„Warum wichtig“**, **„Verbindungen“**, "
             "**„Kurs-Link“**, Definitionen, mehrteilige Absätze, Aufzählungen, **gleich lange** Texte pro Thema.\n\n"
             "**Priorität 1–10** = wie viel Raum Topic-Lektionen später einplanen sollen (hoch = mehr Tiefe dort). "
@@ -1341,12 +1348,12 @@ def _prompt_topic_map(
             "summary surface**. **Real teaching belongs in Topic Lessons** (another file).\n\n"
             "**Allowed in this file only:**\n"
             "- Top heading exactly: `## Topic Roadmap`\n"
-            "- **One** short intro paragraph: **max. 3 sentences** — what the unit does, **no** definitions and **no** "
-            "exercise detail.\n"
-            "- Then **4–9** topic blocks. **Per block exactly two lines**, not more:\n"
+            "- **Intro:** **optional** — **at most one sentence**, or **omit** if the topic list already orients the reader. "
+            "**No** mini-essay, **no** exercise detail.\n"
+            "- Then **4–9** topic blocks. **Exactly two lines per block** — **nothing** below:\n"
             "  `### [Topic name]`  \n"
             "  `**Priority:** X/10`  \n"
-            "  (optional **one** extra line `**Note:** …` only for **top** priority 9–10: **max. 10 words** — **no** mini-essay)\n\n"
+            "**No** `Note:` / extra field — one line per topic for orientation.\n\n"
             "**Strictly forbidden** under each topic: **“What it is”**, **“Why it matters”**, **“Connections”**, "
             "**“Course link”**, definitions, multi-sentence blurbs, **equal-length** filler per topic.\n\n"
             "**Priority 1–10** = how much room Topic Lessons should spend later (high = deeper lessons). Base on: lecture "
@@ -1374,29 +1381,36 @@ def _prompt_core_learning(
         truncated = topic_map_content[:_TOPIC_MAP_CONTEXT_CHARS]
         if a.detected_language == "de":
             map_block = (
-                "\n\n**Roadmap = nur Prioritätsliste.** Der folgende Auszug enthält **keine** Lehrtexte — "
-                "typischerweise nur **Themennamen** und **`Priorität: X/10`**. Nutze **nicht** den Roadmap-Stil "
-                "(keine „Warum wichtig“-Sätze aus der Roadmap wiederholen). **Hier** in Topic-Lektionen passiert "
-                "das eigentliche Erklären.\n\n"
+                "\n\n**Roadmap = nur Prioritätsliste.** Der Auszug ist **kein** Lehrtext — nur **Themennamen** + "
+                "**`Priorität: X/10`**. **Hier** passiert das echte Lehren.\n\n"
                 f"{truncated}\n\n"
-                "Kalibrierung **nur** über die Zahl **Priorität** (1–10):\n"
-                "- **8–10:** Lektion **lang und dicht** — wirklich lehren: Begriffe, Unterscheidungen, typische "
-                "Prüfungs-/Übungskanten, wo Studierende scheitern.\n"
-                "- **4–7:** solide Erklärung, **mittlere** Länge.\n"
-                "- **1–3:** **kurz** — Randthema; kein künstliches Auffüllen.\n"
-                "- **Unsymmetrisch:** Nicht jede Lektion gleich lang — **Priorität** steuert Länge, nicht „Balance“.\n"
+                "**Prioritäts-Stufen (verbindlich — starke Asymmetrie):**\n"
+                "- **9–10:** **Kern-Lektionen** — **deutlich** mehr Umfang als andere: mehrere zusammenhängende Absätze, "
+                "echte **Erklärtiefe**. **Quelle:** Vernetzung im Vorlesungsflug (was setzt voraus / wofür braucht man es nachher), "
+                "**die** zentrale Unterscheidung oder Definition, die die Folien wirklich tragen, **typische** "
+                "Verwechslungskante oder **wie** eine Prüfungs-/Übungsfrage stolpern könnte — **nur** wenn die Quelle "
+                "dafür Anker liefert. **Kein** generisches Fachbuchgelaber.\n"
+                "- **8:** noch **stark**, aber **etwas knapper** als 9–10 — kein „alles gleich lang“.\n"
+                "- **4–7:** **kompakt** — sachlich erklären, **ohne** ausufernde „Warum wichtig“-Breite.\n"
+                "- **1–3:** **minimal** — Randthema; wenige Absätze, **keine** künstliche Tiefe.\n\n"
+                "**Wichtig:** Nur **Priorität 8–10** bekommen die **extra** Lehr-Schichten (Missverständnis, Prüfungskante, "
+                "Kette). **Nicht** jede Lektion verlängern — **nur** die mit hoher Zahl.\n"
             )
         else:
             map_block = (
-                "\n\n**Roadmap = priority list only.** The excerpt below is **not** teaching copy — usually just "
-                "**topic names** and **`Priority: X/10`**. Do **not** echo roadmap-style filler. **Teaching happens "
-                "**here** in Topic Lessons.\n\n"
+                "\n\n**Roadmap = priority list only.** The excerpt is **not** teaching — usually **topic names** + "
+                "**`Priority: X/10`**. **Teaching happens here.**\n\n"
                 f"{truncated}\n\n"
-                "Calibrate **only** using the **Priority** number (1–10):\n"
-                "- **8–10:** **long, dense** lesson — real teaching: terms, contrasts, exam/task edges, typical failure modes.\n"
-                "- **4–7:** solid explanation, **medium** length.\n"
-                "- **1–3:** **short** — side topic; no padding.\n"
-                "- **Asymmetric:** Not every lesson the same length — **priority** drives length, not \"balance\".\n"
+                "**Priority tiers (mandatory — strong asymmetry):**\n"
+                "- **9–10:** **Core lessons** — **much** longer than others: multiple connected paragraphs, real depth. "
+                "**From the source:** how the idea sits in the lecture chain, **the** central distinction/definition the "
+                "slides really emphasize, a **typical confusion edge** or **how a task/exam might trip you** — "
+                "**only** when grounded. **No** generic textbook voice.\n"
+                "- **8:** still **strong**, but **somewhat shorter** than 9–10.\n"
+                "- **4–7:** **compact** — clear, **no** sprawling “why it matters” filler.\n"
+                "- **1–3:** **minimal** — few paragraphs; **no** fake depth.\n\n"
+                "**Only** priorities **8–10** get the **extra** teaching layers (misconception, exam/task angle, chain). "
+                "**Do not** lengthen every lesson—**only** high numbers.\n"
             )
     else:
         if a.detected_language == "de":
@@ -1421,11 +1435,11 @@ def _prompt_core_learning(
             "breiter.\n\n"
             + _topic_lessons_prose_instructions(a)
             + "\n\n"
-            "Kalibrierung über die Roadmap (Priorität 1–10 → Länge/Tiefe der Lektion; hohe Priorität = mehr Raum für "
-            "Begriffs-/Anwendungs-Lektionen je nach Archetyp):\n"
-            "- Hohe Priorität (8–10): Lektion **ausführlicher und dichter**.\n"
-            "- Mittlere Priorität (4–7): **normal**.\n"
-            "- Niedrige Priorität (1–3): **kurze** Lektion.\n\n"
+            "Priorität aus der Roadmap (pro `###`-Lektion die passende Zahl suchen):\n"
+            "- **9–10:** **Kern** — **spürbar** länger und dichter als andere Lektionen; extra Lehr-Schicht (siehe Kasten oben).\n"
+            "- **8:** stark, aber **kürzer** als 9–10.\n"
+            "- **4–7:** **kompakt**.\n"
+            "- **1–3:** **kurz**.\n\n"
             "Strikte Regeln:\n"
             "- **Kein** zusammenhängender Gesamt-Essay über die ganze Vorlesung vor oder statt der Lektionen.\n"
             "- Themen-Roadmap / Quick-Overview-Inhaltsverzeichnis **nicht** wiederholen.\n"
@@ -1445,11 +1459,11 @@ def _prompt_core_learning(
             "Produce **Topic Lessons** — **few** lessons, **maximum** usefulness per paragraph, **deeper** not broader.\n\n"
             + _topic_lessons_prose_instructions(a)
             + "\n\n"
-            "Calibrate using the Roadmap (**Priority** 1–10 → lesson length/depth; high priority = more room for "
-            "concept- vs application-heavy lessons per archetype):\n"
-            "- High priority (8–10): **longer, denser** lesson.\n"
-            "- Medium (4–7): **normal**.\n"
-            "- Low (1–3): **short** lesson.\n\n"
+            "Match each `###` lesson to its **Priority** from the roadmap excerpt above:\n"
+            "- **9–10:** **core** — **noticeably** longer/denser than other lessons; extra teaching layers (see box above).\n"
+            "- **8:** strong, **shorter** than 9–10.\n"
+            "- **4–7:** **compact**.\n"
+            "- **1–3:** **short**.\n\n"
             "Strict rules:\n"
             "- **No** single continuous essay about the whole lecture instead of lessons.\n"
             "- Do not repeat the Topic Roadmap / Quick Overview roadmap.\n"
@@ -1518,8 +1532,8 @@ GENERATION_STEPS: list[
     tuple[str, str, Callable[..., tuple[str, str]], int]
 ] = [
     ("quick_overview", "01_quick_overview.md", _prompt_quick_overview, 3072),
-    # Slim roadmap: names + priority only — keep output short so Topic Lessons carry teaching.
-    ("topic_map", "02_topic_map.md", _prompt_topic_map, 1792),
+    # Minimal roadmap — almost only names + priority; Topic Lessons carry teaching.
+    ("topic_map", "02_topic_map.md", _prompt_topic_map, 1024),
     ("core_learning", "03_core_learning.md", _prompt_core_learning, 9216),
     ("revision_sheet", "04_revision_sheet.md", _prompt_revision_sheet, 6144),
 ]
