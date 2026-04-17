@@ -125,6 +125,31 @@
   color: #fff;
   border-color: transparent;
 }
+
+.lecture-section--sources .source-files-list {
+  list-style: disc;
+  margin: 0.35rem 0 0.75rem 1.25rem;
+  padding: 0;
+}
+.lecture-section--sources .source-file-role {
+  font-size: 0.85em;
+  color: var(--color-muted, #666);
+}
+.add-source-form {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.add-source-label {
+  font-size: 0.85rem;
+  color: var(--color-muted, #555);
+}
+.add-source-select {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.4rem;
+}
 </style>
 {% endblock %}
 
@@ -189,9 +214,44 @@
     {% if lecture_analysis.content_profile == 'general' %}general{% elif lecture_analysis.content_profile == 'math' %}math{% elif lecture_analysis.content_profile == 'code' %}code{% elif lecture_analysis.content_profile == 'mixed' %}mixed{% else %}{{ lecture_analysis.content_profile }}{% endif %}
     {% if lecture_analysis.lecture_kind %}· kind {{ lecture_analysis.lecture_kind }}{% endif %}
     {% if lecture_analysis.depth_band %}· depth {{ lecture_analysis.depth_band }}{% endif %}
+    {% if lecture_analysis.get('has_exercise_material') %}· exercise-style sources{% endif %}
   </p>
   {% endif %}
 </header>
+
+<section class="lecture-section lecture-section--sources" aria-labelledby="sources-heading">
+  <h2 id="sources-heading" class="section-heading section-heading--sub">Source files</h2>
+  {% if storage.source_files %}
+  <ul class="source-files-list muted small-print">
+    {% for f in storage.source_files %}
+    <li>
+      <code>{{ f.name }}</code>
+      {% if f.role and f.role != 'other' %}<span class="source-file-role">({{ f.role }})</span>{% endif %}
+      {% if f.is_primary %}<span class="muted">· primary</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small-print">No source list (legacy lecture).</p>
+  {% endif %}
+  {% if storage.multi_source %}
+  <p class="muted small-print source-multi-hint">Extraction combines <strong>all</strong> files below into one text for generation.</p>
+  {% endif %}
+  <form method="post" action="/lectures/{{ lecture.id }}/add-source" enctype="multipart/form-data" class="add-source-form lecture-inline-form">
+    <label class="add-source-label" for="add-source-role">Add file (optional role)</label>
+    <select id="add-source-role" name="role" class="add-source-select" aria-label="Source role hint for extraction">
+      <option value="">Auto from filename</option>
+      <option value="lecture">Lecture / slides</option>
+      <option value="exercise">Exercise / Übungsblatt</option>
+      <option value="notes">Notes / handout</option>
+      <option value="other">Other</option>
+    </select>
+    <label class="file-label add-source-file">
+      <span class="button button-secondary">Add source file</span>
+      <input type="file" name="file" required onchange="this.form.requestSubmit()">
+    </label>
+  </form>
+</section>
 
 <section class="lecture-section lecture-section--actions action-panel" aria-labelledby="lecture-actions-heading">
   <h2 id="lecture-actions-heading" class="section-heading">Actions</h2>
@@ -201,7 +261,7 @@
     </form>
     <form method="post" action="/lectures/{{ lecture.id }}/replace-source" enctype="multipart/form-data" class="inline-file-form">
       <label class="file-label">
-        <span class="button button-secondary">Replace source file</span>
+        <span class="button button-secondary">Replace primary source</span>
         <input type="file" name="file" required onchange="this.form.requestSubmit()">
       </label>
     </form>
@@ -211,7 +271,7 @@
     <a class="button button-secondary" href="/lectures/{{ lecture.id }}/export.zip">Download lecture ZIP</a>
     <a class="button button-danger-outline" href="/lectures/{{ lecture.id }}/confirm-delete">Delete lecture</a>
   </div>
-  <p class="hint lecture-actions-hint">Replacing the source file uploads a new file, removes the previous one from <code>source/</code>, and runs extraction again. Generation needs a valid <code>OPENAI_API_KEY</code> in <code>.env</code>.</p>
+  <p class="hint lecture-actions-hint">Replace primary: swaps the <strong>first</strong> source file; additional files stay. Re-run extraction rebuilds combined text. Generation needs <code>OPENAI_API_KEY</code> in <code>.env</code>.</p>
 </section>
 
 <details class="lecture-section lecture-user-tools">

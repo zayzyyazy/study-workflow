@@ -11,7 +11,7 @@ from app.config import APP_ROOT
 from app.services import lecture_service
 from app.services.concept_service import lecture_concepts_ui_context
 from app.services.lecture_delete import delete_lecture
-from app.services.lecture_extraction_actions import re_run_extraction, replace_source_file
+from app.services.lecture_extraction_actions import add_source_file, re_run_extraction, replace_source_file
 from app.services.export_zip_service import zip_lecture_export
 from app.services.lecture_generation import run_study_materials_generation
 from app.services.lecture_meta import read_meta
@@ -225,6 +225,20 @@ async def post_replace_source(lecture_id: int, file: UploadFile = File(...)) -> 
     if not file.filename:
         return _lecture_redirect(lecture_id, error="No file selected.")
     ok, msg = replace_source_file(lecture_id, file.filename, file.file)
+    if not ok:
+        return _lecture_redirect(lecture_id, error=msg)
+    return _lecture_redirect(lecture_id, notice=msg)
+
+
+@router.post("/lectures/{lecture_id}/add-source", response_model=None)
+async def post_add_source(
+    lecture_id: int,
+    file: UploadFile = File(...),
+    role: str = Form(""),
+) -> RedirectResponse:
+    if not file.filename:
+        return _lecture_redirect(lecture_id, error="No file selected.")
+    ok, msg = add_source_file(lecture_id, file.filename, file.file, role=role or None)
     if not ok:
         return _lecture_redirect(lecture_id, error=msg)
     return _lecture_redirect(lecture_id, notice=msg)

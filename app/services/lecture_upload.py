@@ -8,6 +8,7 @@ from typing import BinaryIO, Optional
 
 from app.services import course_service, extraction_service, lecture_service, storage_service
 from app.services import lecture_meta
+from app.services import source_manifest
 from app.services.slugs import sanitize_folder_name
 from app.services.lecture_statuses import READY_AFTER_EXTRACTION
 
@@ -107,6 +108,11 @@ def create_lecture_from_upload(
             extraction_note = "Extraction produced no text."
 
     source_rel = lecture_meta.relative_to_app(dest_file)
+
+    source_manifest.save_manifest(
+        lecture_root,
+        source_manifest.legacy_single_file_manifest(source_rel, safe_name)["files"],
+    )
 
     lec = lecture_service.insert_lecture(
         course_id=cid,

@@ -195,6 +195,23 @@ _VALID_KINDS = frozenset(
     }
 )
 _VALID_DEPTH = frozenset({"light", "medium", "dense"})
+PracticalDensity = Literal["low", "medium", "high"]
+
+# Problem-solving / exercise-style wording (combined text may include "## Source:" exercise sheets)
+_EXERCISE_SHEET_MARKERS = re.compile(
+    r"^\*\*Role:\*\*\s*exercise",
+    re.MULTILINE | re.IGNORECASE,
+)
+_TASK_LANGUAGE = [
+    re.compile(
+        r"\b(aufgabe|aufgaben|übung|übungen|übungsblatt|übungsblätter|tutorium|"
+        r"exercise|exercises|problem\s*set|homework|assignment|klausuraufgabe|"
+        r"zeige\s+dass|beweise|show\s+that|prove\s+that|calculate|berechne|"
+        r"gegeben\s+sei|given)\b",
+        re.I,
+    ),
+    re.compile(r"^\s*\(?[a-z0-9]+\)\s+", re.MULTILINE),  # (a) (b) style
+]
 
 
 @dataclass
@@ -208,6 +225,9 @@ class LectureAnalysis:
     depth_band: DepthBand
     is_organizational: bool
     is_proof_heavy: bool
+    has_exercise_material: bool
+    practical_density: PracticalDensity
+    problem_solving_emphasis: bool
 
     def to_meta_dict(self) -> dict[str, Any]:
         return {
@@ -220,6 +240,9 @@ class LectureAnalysis:
             "depth_band": self.depth_band,
             "is_organizational": self.is_organizational,
             "is_proof_heavy": self.is_proof_heavy,
+            "has_exercise_material": self.has_exercise_material,
+            "practical_density": self.practical_density,
+            "problem_solving_emphasis": self.problem_solving_emphasis,
             "analysis_updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -371,6 +394,29 @@ def _classify_lecture_kind(
     return "general", False, False
 
 
+def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bool]:
+    """
+    Detect exercise sheets / task-heavy combined sources.
+    Returns (has_exercise_material, practical_density, problem_solving_emphasis).
+    """
+    has_marker = bool(_EXERCISE_SHEET_MARKERS.search(sample))
+    task_score = sum(float(len(p.findall(sample))) for p in _TASK_LANGUAGE)
+    n = max(len(sample), 1)
+    per_10k = task_score / (n / 10_000.0)
+
+    has_exercise_material = has_marker or per_10k >= 15.0
+
+    if per_10k < 6.0 and not has_marker:
+        dens: PracticalDensity = "low"
+    elif per_10k > 22.0 or has_marker:
+        dens = "high"
+    else:
+        dens = "medium"
+
+    pse = bool(has_exercise_material or per_10k >= 8.0)
+    return has_exercise_material, dens, pse
+
+
 def analyze_extracted_text(text: str) -> LectureAnalysis:
     """
     Analyze truncated or full extracted lecture text.
@@ -399,10 +445,12 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
         n_chars=len(sample),
     )
     depth = _depth_band(sample, ms, heading_lines)
+    has_ex, pract_dens, pse = _practical_exercise_signals(sample)
 
     notes = (
         f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} proof={proof_hits:.1f} "
-        f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth}"
+        f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
+        f"exercise_material={has_ex} practical={pract_dens} pse={pse}"
     )
     return LectureAnalysis(
         detected_language=lang,
@@ -414,6 +462,9 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
         depth_band=depth,
         is_organizational=is_org,
         is_proof_heavy=is_proof,
+        has_exercise_material=has_ex,
+        practical_density=pract_dens,
+        problem_solving_emphasis=pse,
     )
 
 
@@ -435,6 +486,9 @@ def analysis_from_meta(meta: dict[str, Any]) -> LectureAnalysis | None:
         depth = block.get("depth_band", "medium")
         if depth not in _VALID_DEPTH:
             depth = "medium"
+        pd = block.get("practical_density", "medium")
+        if pd not in ("low", "medium", "high"):
+            pd = "medium"
         return LectureAnalysis(
             detected_language=lang,
             content_profile=prof,
@@ -445,6 +499,9 @@ def analysis_from_meta(meta: dict[str, Any]) -> LectureAnalysis | None:
             depth_band=depth,  # type: ignore[arg-type]
             is_organizational=bool(block.get("is_organizational", kind == "organizational")),
             is_proof_heavy=bool(block.get("is_proof_heavy", kind == "proof_heavy")),
+            has_exercise_material=bool(block.get("has_exercise_material")),
+            practical_density=pd,  # type: ignore[arg-type]
+            problem_solving_emphasis=bool(block.get("problem_solving_emphasis")),
         )
     except (TypeError, ValueError):
         return None

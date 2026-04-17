@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Optional
 
 from app.config import APP_ROOT
 from app.services.lecture_paths import lecture_root_from_source_relative
+from app.services import source_manifest
 
 
 def lecture_disk_folder_name(lecture_row: dict[str, Any]) -> str:
@@ -68,6 +70,33 @@ def lecture_storage_context(lecture: dict[str, Any]) -> dict[str, Any]:
     else:
         source_dir_rel = ""
 
+    source_files: list[dict[str, Any]] = []
+    multi_source = False
+    if lecture_root is not None:
+        m = source_manifest.load_manifest(lecture_root)
+        if m and isinstance(m.get("files"), list):
+            for i, ent in enumerate(m["files"]):
+                if not isinstance(ent, dict):
+                    continue
+                source_files.append(
+                    {
+                        "name": str(ent.get("name") or ""),
+                        "rel_path": str(ent.get("rel_path") or "").replace("\\", "/"),
+                        "role": str(ent.get("role") or "other"),
+                        "is_primary": i == 0,
+                    }
+                )
+            multi_source = len(source_files) > 1
+    if not source_files and source_rel:
+        source_files = [
+            {
+                "name": source_file_name or Path(source_rel).name,
+                "rel_path": source_rel,
+                "role": "lecture",
+                "is_primary": True,
+            }
+        ]
+
     return {
         "course_folder_rel": f"courses/{course_slug}" if course_slug else "",
         "lecture_folder_rel": rel_root,
@@ -79,6 +108,8 @@ def lecture_storage_context(lecture: dict[str, Any]) -> dict[str, Any]:
         "extracted_rel": extracted_rel,
         "full_lecture_root": full_root,
         "full_course_dir": full_course_dir,
+        "source_files": source_files,
+        "multi_source": multi_source,
     }
 
 

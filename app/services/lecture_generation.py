@@ -230,6 +230,10 @@ def _adaptation_summary(a: LectureAnalysis) -> str:
             lines.append(
                 "Diese Einheit wirkt **logistik- oder regelzentriert** — keine künstliche Theorie/Mathe simulieren."
             )
+        if a.has_exercise_material or a.practical_density == "high":
+            lines.append(
+                "Es gibt Signale für **Übungs-/Aufgabenmaterial** — Themen aus Vorlesung **und** Übung stärker verknüpfen."
+            )
         return "\n".join(lines)
     kind_labels = {
         "organizational": "mostly organizational / admin",
@@ -249,6 +253,10 @@ def _adaptation_summary(a: LectureAnalysis) -> str:
         lines.append("Strong signals for **proof-style reasoning**.")
     if a.is_organizational:
         lines.append("This session looks **logistics- and rules-centric** — do not fabricate theory/math.")
+    if a.has_exercise_material or a.practical_density == "high":
+        lines.append(
+            "Signals for **exercise / worksheet material** — connect lecture topics with **practice patterns** more strongly."
+        )
     return "\n".join(lines)
 
 
@@ -273,6 +281,85 @@ def _anti_generic_rules(a: LectureAnalysis) -> str:
         "- Avoid uniform sections — **vary structure and length** by conceptual weight.\n"
         "- Do not over-expand trivial points; spend words on what the lecture **actually emphasizes**."
     )
+
+
+def _scope_and_topic_rules(a: LectureAnalysis) -> str:
+    """Outputs must feel specific to this course/lecture, not interchangeable summaries."""
+    if a.detected_language == "de":
+        return (
+            "Bezug & Originalität (verbindlich):\n"
+            "- Formulierungen und Schwerpunkte müssen **erkennbar zu genau dieser Vorlesung** passen — "
+            "nicht wie ein generisches Fachbuch.\n"
+            "- **Kurs- und Themenabhängigkeit:** Begriffe, Beispiele und Gewichtung aus der **Quelle** ableiten; "
+            "keine austauschbare „Standard-Erklärung“.\n"
+            "- **Rhythmus und Stil** an die Vorlesung anpassen — nicht jede Einheit gleich klingen lassen."
+        )
+    return (
+        "Scope & originality (mandatory):\n"
+        "- Wording and emphasis must **clearly fit this specific lecture** — not a generic textbook.\n"
+        "- **Course/topic dependence:** derive terms, examples, and weighting from the **source**; "
+        "avoid interchangeable default explanations.\n"
+        "- **Vary rhythm and tone** to match the lecture — do not make every unit sound the same."
+    )
+
+
+def _exercise_application_addon(a: LectureAnalysis, step: str) -> str:
+    """Stronger solving/practice behavior when exercise-like sources or task language are present."""
+    if not (a.has_exercise_material or a.problem_solving_emphasis or a.practical_density == "high"):
+        return ""
+    if a.detected_language == "de":
+        base = (
+            "\n\n**Übungs-/Anwendungsbezug (Heuristik: zusätzliche Quellen oder Aufgabenanteil erkannt):**\n"
+            "- Nutze **Aufgaben/Übungsblätter** in der Quelle, um zu erkennen, **welche Konzepte praktisch prüfungsrelevant** "
+            "sind und **wie Fragen typischerweise gestellt** werden.\n"
+            "- Themen, die in **Vorlesung und Übung** vorkommen, als **tragender** behandeln — nicht nur nennen.\n"
+        )
+        if step == "topic_map":
+            base += (
+                "- Topic Map: **praktische Relevanz** (wiederkehrende Übungsmuster) darf **Tiefenscores** und "
+                "**Warum wichtig** stärker beeinflussen als reine Randbegriffe.\n"
+            )
+        elif step == "core_learning":
+            base += (
+                "- Core Learning: erkläre **wie man Aufgaben angeht** (Muster, typische ersten Schritte, worauf achten) — "
+                "aus der Quelle, nicht erfunden.\n"
+                "- **Abhängigkeiten:** was muss zuerst sitzen, was folgt daraus — besonders für Übungsaufgaben.\n"
+            )
+        elif step == "quick_overview":
+            base += (
+                "- Quick Overview: erwähne kurz, ob **Übungs-/Prüfungsnahes** dabei ist (ohne Vorweg-Liste aller Aufgaben).\n"
+            )
+        elif step == "revision_sheet":
+            base += (
+                "- Revision Sheet: **lösungsnahe** Merkpunkte (Checkliste: typische Aufgabenmuster) wenn die Quelle das hergibt.\n"
+            )
+        return base
+    base = (
+        "\n\n**Exercise / application context (heuristic: extra sources or task-heavy text detected):**\n"
+        "- Use **problem sets / worksheets** in the source to infer **what is practically important** and "
+        "**how questions are typically phrased**.\n"
+        "- Topics appearing in **both lecture and exercises** deserve **more weight** — not just a name-check.\n"
+    )
+    if step == "topic_map":
+        base += (
+            "- Topic Map: **practical relevance** (recurring exercise patterns) may **raise depth scores** and "
+            "**why it matters** vs peripheral terms.\n"
+        )
+    elif step == "core_learning":
+        base += (
+            "- Core Learning: explain **how to approach tasks** (patterns, first steps, what to watch for) — "
+            "grounded in the source, not invented.\n"
+            "- **Dependencies:** what must be solid first, what follows — especially for exercises.\n"
+        )
+    elif step == "quick_overview":
+        base += (
+            "- Quick Overview: briefly note if **exam-/practice-adjacent** material is present (no exhaustive task list).\n"
+        )
+    elif step == "revision_sheet":
+        base += (
+            "- Revision Sheet: add **solution-adjacent** memory hooks (typical task patterns) when the source supports it.\n"
+        )
+    return base
 
 
 def _example_policy_line(a: LectureAnalysis) -> str:
@@ -684,7 +771,10 @@ def _system_prompt(a: LectureAnalysis) -> str:
             f"Lektionsart (Heuristik): **{a.lecture_kind}**. "
             f"Geschätzte Tiefe: **{a.depth_band}**. "
             f"Quelle enthält erkennbare Formeln: {'ja' if a.has_formulas else 'nein'}. "
-            f"Quelle enthält erkennbaren Code: {'ja' if a.has_code else 'nein'}.\n\n"
+            f"Quelle enthält erkennbaren Code: {'ja' if a.has_code else 'nein'}. "
+            f"Übungs-/Aufgabenmaterial (Heuristik): {'ja' if a.has_exercise_material else 'nein'}; "
+            f"praktische Dichte: **{a.practical_density}**; "
+            f"Problem-/Lösungsfokus: {'ja' if a.problem_solving_emphasis else 'nein'}.\n\n"
             f"{_adaptation_summary(a)}"
         )
     else:
@@ -701,7 +791,10 @@ def _system_prompt(a: LectureAnalysis) -> str:
             f"Lecture kind (heuristic): **{a.lecture_kind}**. "
             f"Estimated depth band: **{a.depth_band}**. "
             f"Source appears to contain formulas: {'yes' if a.has_formulas else 'no'}. "
-            f"Source appears to contain code: {'yes' if a.has_code else 'no'}.\n\n"
+            f"Source appears to contain code: {'yes' if a.has_code else 'no'}. "
+            f"Exercise-like material (heuristic): {'yes' if a.has_exercise_material else 'no'}; "
+            f"practical density: **{a.practical_density}**; "
+            f"problem-solving emphasis: {'yes' if a.problem_solving_emphasis else 'no'}.\n\n"
             f"{_adaptation_summary(a)}"
         )
     return (
@@ -710,6 +803,8 @@ def _system_prompt(a: LectureAnalysis) -> str:
         + analysis
         + "\n\n"
         + _anti_generic_rules(a)
+        + "\n\n"
+        + _scope_and_topic_rules(a)
         + "\n\n"
         + _profile_rules(a)
     )
@@ -738,7 +833,11 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             "- Bezug auf den tatsächlichen Vorlesungsinhalt; nichts Erfundenes.\n\n"
             "Oberste Überschrift exakt: ## Quick Overview"
         )
-        extra += _quick_overview_kind_addon(a) + _example_policy_line(a)
+        extra += (
+            _quick_overview_kind_addon(a)
+            + _example_policy_line(a)
+            + _exercise_application_addon(a, "quick_overview")
+        )
     else:
         extra = (
             "Produce **Quick Overview** — the short orientation read before everything else.\n\n"
@@ -755,7 +854,11 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             "- Ground every statement in the actual lecture, not generic claims.\n\n"
             "Top heading must be exactly: ## Quick Overview"
         )
-        extra += _quick_overview_kind_addon(a) + _example_policy_line(a)
+        extra += (
+            _quick_overview_kind_addon(a)
+            + _example_policy_line(a)
+            + _exercise_application_addon(a, "quick_overview")
+        )
     return sys, extra
 
 
@@ -812,6 +915,7 @@ def _prompt_topic_map(
             + _topic_map_depth_calibration(a)
             + _topic_map_kind_focus(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "topic_map")
         )
     else:
         extra = (
@@ -845,6 +949,7 @@ def _prompt_topic_map(
             + _topic_map_depth_calibration(a)
             + _topic_map_kind_focus(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "topic_map")
         )
     return sys, extra
 
@@ -915,6 +1020,7 @@ def _prompt_core_learning(
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "core_learning")
         )
     else:
         extra = (
@@ -940,6 +1046,7 @@ def _prompt_core_learning(
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "core_learning")
         )
     return sys, extra
 
@@ -961,6 +1068,7 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             + _artifact_technical_addon(a, "revision_sheet")
             + _revision_kind_addon(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "revision_sheet")
         )
     else:
         extra = (
@@ -977,6 +1085,7 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             + _artifact_technical_addon(a, "revision_sheet")
             + _revision_kind_addon(a)
             + _example_policy_line(a)
+            + _exercise_application_addon(a, "revision_sheet")
         )
     return sys, extra
 
