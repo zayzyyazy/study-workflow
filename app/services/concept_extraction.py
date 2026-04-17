@@ -12,14 +12,25 @@ from pathlib import Path
 from app.services.concept_normalize import clean_display_name, normalize_concept_key
 from app.services.concept_quality import is_noise_concept
 
-# Must match primary output filenames (study pack is aggregate — not listed here)
-SOURCES = (
+# New output structure (01-04, no study pack aggregate)
+_SOURCES_NEW = (
+    "01_quick_overview.md",
+    "02_topic_map.md",
+    "03_core_learning.md",
+    "04_revision_sheet.md",
+)
+
+# Legacy output structure (old lectures)
+_SOURCES_LEGACY = (
     "01_quick_overview.md",
     "02_glossary.md",
     "03_teach_me.md",
     "04_examples_and_solutions.md",
     "05_revision_sheet.md",
 )
+
+# Filenames whose content should be parsed with glossary-style extraction
+_GLOSSARY_LIKE = frozenset({"02_topic_map.md", "02_glossary.md", "01_glossary.md"})
 
 MAX_CONCEPTS = 55
 MAX_BOLD_PICKS = 22
@@ -105,7 +116,14 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
     """
     Read generation outputs and return unique display names (stable order, capped).
     Deduplicates by normalized key; prefers first occurrence.
+    Supports both new (02_topic_map) and legacy (02_glossary) output structures.
     """
+    # Choose source list based on which structure exists
+    if (outputs_dir / "02_topic_map.md").is_file() or (outputs_dir / "03_core_learning.md").is_file():
+        sources = _SOURCES_NEW
+    else:
+        sources = _SOURCES_LEGACY
+
     seen: dict[str, str] = {}
     order: list[str] = []
 
@@ -121,7 +139,7 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
                 seen[key] = disp
                 order.append(disp)
 
-    for fname in SOURCES:
+    for fname in sources:
         path = outputs_dir / fname
         if not path.is_file():
             continue
@@ -129,10 +147,10 @@ def extract_concepts_from_outputs(outputs_dir: Path) -> list[str]:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if "glossary" in fname.lower():
+        if fname in _GLOSSARY_LIKE:
             add_many(_parse_glossary(text), mode="glossary")
         add_many(_parse_headings(text), mode="strict")
-        if "02_glossary" not in fname and "01_glossary" not in fname:
+        if fname not in _GLOSSARY_LIKE:
             add_many(_parse_bold(text), mode="strict")
 
     return order[:MAX_CONCEPTS]

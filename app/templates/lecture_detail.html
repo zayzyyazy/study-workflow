@@ -1,4 +1,133 @@
 {% extends "base.html" %}
+{% block extra_css %}
+<style>
+/* ── Study materials section flow ───────────────────────────── */
+.gen-section + .gen-section {
+  margin-top: 2.5rem;
+}
+
+/* Quick Overview: lighter intro feel */
+.gen-section-quick-overview .gen-section-title {
+  font-size: 1.05rem;
+  color: var(--color-muted, #666);
+  font-weight: 600;
+}
+
+/* Topic Map: compact card-like blocks per entry */
+.gen-section-topic-map .md-output h3 {
+  font-size: 1rem;
+  margin-top: 1.4rem;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+.gen-section-topic-map .md-output hr {
+  margin: 0.5rem 0;
+  opacity: 0.3;
+}
+
+/* Core Learning: prominent heading */
+.gen-section-core-learning > .gen-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.gen-section-core-learning .md-output h3 {
+  margin-top: 2rem;
+}
+
+/* Revision Sheet: visually lighter */
+.gen-section-revision-sheet {
+  background: var(--color-surface-subtle, #fafafa);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+}
+.gen-section-revision-sheet > .gen-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-muted, #555);
+}
+
+/* Study pack: visually secondary */
+.gen-section-study-pack {
+  opacity: 0.8;
+}
+.gen-section-study-pack > .gen-section-title {
+  font-size: 0.95rem;
+  color: var(--color-muted, #888);
+}
+
+/* Core Learning sub-TOC */
+.corelearning-subtoc {
+  background: var(--color-surface-subtle, #f5f5f5);
+  border-left: 3px solid var(--color-accent, #4a90d9);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.875rem;
+}
+.corelearning-subtoc-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.corelearning-subtoc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.corelearning-subtoc-link {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd);
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.82rem;
+}
+.corelearning-subtoc-link:hover {
+  background: var(--color-accent, #4a90d9);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Teach-me subtoc kept for legacy lectures */
+.teachme-subtoc {
+  background: var(--color-surface-subtle, #f5f5f5);
+  border-left: 3px solid var(--color-accent, #4a90d9);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.875rem;
+}
+.teachme-subtoc-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.teachme-subtoc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.teachme-subtoc-link {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd);
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.82rem;
+}
+.teachme-subtoc-link:hover {
+  background: var(--color-accent, #4a90d9);
+  color: #fff;
+  border-color: transparent;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 {% if notice %}
 <p class="flash flash-success">{{ notice }}</p>
@@ -100,7 +229,7 @@
       <form method="post" action="/lectures/{{ lecture.id }}/rebuild-study-pack" class="lecture-tool-form">
         <label class="home-reset-check">
           <input type="checkbox" name="confirm" value="1" required>
-          Rebuild <code>06_study_pack.md</code> from existing section files (no AI)
+          Rebuild <code>05_study_pack.md</code> from existing section files (no AI)
         </label>
         <button type="submit" class="button button-secondary button-small">Rebuild study pack</button>
       </form>
@@ -129,10 +258,14 @@
     <button type="button" class="button button-secondary button-small study-pack-print-btn" onclick="window.open('/lectures/{{ lecture.id }}/study_pack.html','_blank')">Open print view</button>
   </div>
   <p class="muted small-print study-pack-print-hint">On the printable page, use <strong>Print</strong> → <strong>Save as PDF</strong> for a clean PDF.</p>
+
   {% if generation_sections %}
+  {# TOC: main study sections only (skip study_pack) #}
   <nav class="materials-toc materials-toc--prominent" aria-label="Jump to a section">
     {% for sec in generation_sections %}
+    {% if sec.artifact_type != 'study_pack' %}
     <a class="materials-toc-link" href="#gen-{{ sec.artifact_type }}">{{ sec.title }}</a>
+    {% endif %}
     {% endfor %}
   </nav>
   {% endif %}
@@ -140,12 +273,23 @@
   {% for sec in generation_sections %}
   <article class="gen-section gen-section-{{ sec.artifact_type | replace('_', '-') }}" id="gen-{{ sec.artifact_type }}">
     <h3 class="gen-section-title">{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
+
+    {# Sub-TOC for Core Learning (new structure) #}
+    {% if sec.artifact_type == "core_learning" %}
+    <nav class="corelearning-subtoc" id="corelearning-subtoc" hidden>
+      <span class="corelearning-subtoc-label">Topics:</span>
+      <div class="corelearning-subtoc-links" id="corelearning-subtoc-links"></div>
+    </nav>
+    {% endif %}
+
+    {# Sub-TOC for Teach Me (legacy lectures) #}
     {% if sec.artifact_type == "teach_me" %}
     <nav class="teachme-subtoc" id="teachme-subtoc" hidden>
       <span class="teachme-subtoc-label">Teach Me topics:</span>
       <div class="teachme-subtoc-links" id="teachme-subtoc-links"></div>
     </nav>
     {% endif %}
+
     {% if sec.html %}
     <div class="md-output" id="gen-content-{{ sec.artifact_type }}">{{ sec.html | safe }}</div>
     {% else %}
@@ -271,30 +415,50 @@
       navigator.clipboard.writeText(text).then(function () {
         if (feedback) {
           feedback.hidden = false;
-          setTimeout(function () {
-            feedback.hidden = true;
-          }, 2000);
+          setTimeout(function () { feedback.hidden = true; }, 2000);
         }
       });
     }
   });
 })();
 
+// Sub-TOC for Core Learning (new structure)
+(function () {
+  var root = document.getElementById("gen-content-core_learning");
+  var toc = document.getElementById("corelearning-subtoc");
+  var links = document.getElementById("corelearning-subtoc-links");
+  if (!root || !toc || !links) return;
+  var heads = root.querySelectorAll("h3, h4");
+  if (!heads || heads.length === 0) return;
+  var created = 0;
+  heads.forEach(function (h, idx) {
+    if (h.tagName === "H4") return; // only ### headings
+    var txt = (h.textContent || "").trim();
+    if (!txt) return;
+    if (!h.id) { h.id = "cl-topic-" + idx; }
+    var a = document.createElement("a");
+    a.className = "corelearning-subtoc-link";
+    a.href = "#" + h.id;
+    a.textContent = txt;
+    links.appendChild(a);
+    created += 1;
+  });
+  if (created > 0) { toc.hidden = false; }
+})();
+
+// Sub-TOC for Teach Me (legacy lectures only)
 (function () {
   var root = document.getElementById("gen-content-teach_me");
   var toc = document.getElementById("teachme-subtoc");
   var links = document.getElementById("teachme-subtoc-links");
   if (!root || !toc || !links) return;
-
   var heads = root.querySelectorAll("h2, h3");
   if (!heads || heads.length === 0) return;
   var created = 0;
   heads.forEach(function (h, idx) {
     var txt = (h.textContent || "").trim();
     if (!txt) return;
-    if (!h.id) {
-      h.id = "teachme-topic-" + idx;
-    }
+    if (!h.id) { h.id = "teachme-topic-" + idx; }
     var a = document.createElement("a");
     a.className = "teachme-subtoc-link";
     a.href = "#" + h.id;
@@ -302,9 +466,7 @@
     links.appendChild(a);
     created += 1;
   });
-  if (created > 0) {
-    toc.hidden = false;
-  }
+  if (created > 0) { toc.hidden = false; }
 })();
 </script>
 {% endblock %}

@@ -10,8 +10,8 @@ from app.services.study_output_paths import build_study_pack_markdown
 
 def rebuild_study_pack_file(lecture: dict[str, Any]) -> tuple[bool, str]:
     """
-    Rewrite ``06_study_pack.md`` by concatenating ``01_``…``05_`` section files.
-    Does not call OpenAI or regenerate individual sections.
+    Rewrite ``05_study_pack.md`` (or ``06_study_pack.md`` for legacy lectures) by
+    concatenating section files. Does not call OpenAI or regenerate individual sections.
     """
     sp = lecture.get("source_file_path")
     if not sp:
@@ -24,7 +24,8 @@ def rebuild_study_pack_file(lecture: dict[str, Any]) -> tuple[bool, str]:
     if not outputs.is_dir():
         return False, "No outputs folder found. Generate study materials first."
     text = build_study_pack_markdown(outputs)
-    out = outputs / "06_study_pack.md"
+    # Use new filename; legacy lectures that had 06_ keep working via LEGACY_FALLBACKS
+    out = outputs / "05_study_pack.md"
     try:
         out.write_text(text, encoding="utf-8")
     except OSError as e:

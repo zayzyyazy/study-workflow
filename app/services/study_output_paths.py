@@ -1,18 +1,27 @@
-"""Primary and legacy output filenames for study materials (study pack redesign)."""
+"""Primary and legacy output filenames for study materials."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
 
-# New study-pack files (primary). Values are fallbacks tried in order if primary missing (old lectures).
+# New structure (01-05). Values are fallbacks tried in order when primary is missing (old lectures).
 LEGACY_FALLBACKS: dict[str, tuple[str, ...]] = {
     "quick_overview": ("01_quick_overview.md", "02_summary.md"),
-    "glossary": ("02_glossary.md", "01_glossary.md"),
-    "teach_me": ("03_teach_me.md", "02_teach_me.md", "03_topic_explanations.md"),
-    "examples_and_solutions": ("04_examples_and_solutions.md", "03_worked_examples.md", "04_deep_dive.md"),
-    "revision_sheet": ("05_revision_sheet.md", "05_connections.md", "02_summary.md"),
-    "study_pack": ("06_study_pack.md",),
+    "topic_map": ("02_topic_map.md", "02_glossary.md", "01_glossary.md"),
+    "core_learning": (
+        "03_core_learning.md",
+        "03_teach_me.md",
+        "02_teach_me.md",
+        "03_topic_explanations.md",
+    ),
+    "revision_sheet": (
+        "04_revision_sheet.md",
+        "05_revision_sheet.md",
+        "05_connections.md",
+        "02_summary.md",
+    ),
+    "study_pack": ("05_study_pack.md", "06_study_pack.md"),
 }
 
 
@@ -30,17 +39,37 @@ def resolve_existing_output(outputs_dir: Path, artifact_type: str) -> tuple[Opti
     return None, names[0]
 
 
+def _strip_duplicate_heading(body: str, heading: str) -> str:
+    """
+    Remove a top-level ## heading from body if it duplicates the section label
+    we are about to write into the study pack.
+    Only removes the very first ## line if it matches (case-insensitive).
+    """
+    lines = body.splitlines()
+    if not lines:
+        return body
+    first = lines[0].strip()
+    # Match "## Heading Text" where the text equals the expected heading (loosely)
+    if first.startswith("## ") and first[3:].strip().lower() == heading.lower():
+        rest = "\n".join(lines[1:]).lstrip("\n")
+        return rest
+    return body
+
+
 def build_study_pack_markdown(outputs_dir: Path) -> str:
     """
     Concatenate primary study-pack sections into one Markdown file (no LLM).
-    Skips missing sections.
+    Supports new (01-04) and legacy output structures. Skips missing sections.
+    Removes duplicate top-level section headings to avoid "## Quick Overview" twice.
     """
     sections: list[tuple[tuple[str, ...], str]] = [
         (("01_quick_overview.md", "02_summary.md"), "Quick Overview"),
-        (("02_glossary.md", "01_glossary.md"), "Glossary"),
-        (("03_teach_me.md", "02_teach_me.md"), "Teach Me"),
-        (("04_examples_and_solutions.md", "03_worked_examples.md"), "Examples and Solutions"),
-        (("05_revision_sheet.md",), "Revision Sheet"),
+        (("02_topic_map.md", "02_glossary.md", "01_glossary.md"), "Topic Map"),
+        (
+            ("03_core_learning.md", "03_teach_me.md", "02_teach_me.md", "03_topic_explanations.md"),
+            "Core Learning",
+        ),
+        (("04_revision_sheet.md", "05_revision_sheet.md"), "Revision Sheet"),
     ]
     chunks: list[str] = []
     for candidates, title in sections:
@@ -52,15 +81,14 @@ def build_study_pack_markdown(outputs_dir: Path) -> str:
                 break
         if p is None:
             continue
-        if not p.is_file():
-            continue
         body = p.read_text(encoding="utf-8", errors="replace").strip()
         if not body:
             continue
+        body = _strip_duplicate_heading(body, title)
         chunks.append(f"\n\n---\n\n## {title}\n\n{body}")
     text = (
-        "# Study pack\n\n"
-        "*Single-file combination of the sections below (generated after each successful run).*"
+        "# Study Pack\n\n"
+        "*Single-file combination of all sections (rebuilt after each successful generation).*"
         + ("".join(chunks) if chunks else "\n\n*(No section files were available to combine.)*")
     )
     return text.strip() + "\n"

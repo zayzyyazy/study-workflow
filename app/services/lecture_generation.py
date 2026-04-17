@@ -14,8 +14,9 @@ from app.services.lecture_paths import lecture_root_from_source_relative
 from app.services.study_output_paths import build_study_pack_markdown
 
 # Avoid huge prompts: model context is limited; this keeps requests safe for typical lectures.
-# Longer notes are truncated with a clear notice (see README).
 MAX_LECTURE_CHARS = 120_000
+# Cap how much of the topic map we pass into the core_learning prompt as context
+_TOPIC_MAP_CONTEXT_CHARS = 3_000
 
 
 def _truncate_for_generation(text: str) -> str:
@@ -69,7 +70,7 @@ def _profile_rules(a: LectureAnalysis) -> str:
                 "Mathematik — Formatierung (verbindlich):\n"
                 "- Inline-Formeln immer in einfachen Dollarzeichen: $...$ (nicht nur Kursiv/Unterstriche).\n"
                 "- Größere oder abgesetzte Formeln/Definitionen in $$...$$ auf eigenen Zeilen; vor/nach ggf. Leerzeile.\n"
-                "- Indizes und „Unterstriche“ nur innerhalb von $...$ (z. B. $x_1$, $a_{ij}$), nie rohe _ außerhalb, sonst zerstört Markdown die Darstellung.\n"
+                "- Indizes und „Unterstriche" nur innerhalb von $...$ (z. B. $x_1$, $a_{ij}$), nie rohe _ außerhalb, sonst zerstört Markdown die Darstellung.\n"
                 "- Symbole und Bezeichner möglichst exakt wie in der Quelle; keine neuen Gleichungen erfinden.\n"
                 "- Lieber klare Notation als vage Umschreibung in Prosa, wenn die Vorlesung formal arbeitet.\n"
                 "- Nach zentralen Formeln kurz auf Deutsch erklären, was die Symbole bedeuten."
@@ -78,11 +79,11 @@ def _profile_rules(a: LectureAnalysis) -> str:
             parts.append(
                 "Code — Formatierung (verbindlich):\n"
                 "- Code in fenced Markdown-Blöcken (dreifache Backticks); nach den Backticks wenn möglich eine Sprache nennen (z. B. ```python, ```text).\n"
-                "- Einrückung und Zeilenumbrüche aus der Quelle bewahren; Code nicht in einen Satz „hineinquetschen“.\n"
-                "- Funktionsnamen, Variablen, APIs und Schlüsselwörter unverändert lassen; nicht still „reparieren“ oder umbenennen.\n"
+                "- Einrückung und Zeilenumbrüche aus der Quelle bewahren; Code nicht in einen Satz „hineinquetschen".\n"
+                "- Funktionsnamen, Variablen, APIs und Schlüsselwörter unverändert lassen; nicht still „reparieren" oder umbenennen.\n"
                 "- Wenn du vereinfachtes oder künstliches Beispielcode zeigst, klar als Beispiel kennzeichnen.\n"
                 "- Verständliche Erklärung auf Deutsch neben oder unter dem Block, was der Code tut.\n"
-                "- Erklärungen auf Deutsch; Bezeichner, APIs und Schlüsselwörter im Code exakt wie in der Quelle (oft Englisch) — nicht „übersetzen“."
+                "- Erklärungen auf Deutsch; Bezeichner, APIs und Schlüsselwörter im Code exakt wie in der Quelle (oft Englisch) — nicht „übersetzen"."
             )
         if a.content_profile == "mixed" and _wants_math_rules(a) and _wants_code_rules(a):
             parts.append(
@@ -110,7 +111,7 @@ def _profile_rules(a: LectureAnalysis) -> str:
             "Code — formatting (mandatory):\n"
             "- Use fenced Markdown code blocks (triple backticks); add a language tag when clear (```python, ```bash, ```text).\n"
             "- Preserve indentation and line breaks from the source when possible; do not flatten code into prose.\n"
-            "- Keep function names, variables, APIs, and keywords exactly as in the source; do not silently rewrite or “fix” them.\n"
+            "- Keep function names, variables, APIs, and keywords exactly as in the source; do not silently rewrite or fix them.\n"
             "- If you show a simplified or illustrative snippet, label it explicitly as an example.\n"
             "- Explain behavior in plain language after or beside the block.\n"
             "- Prose follows the lecture language; keep code identifiers, APIs, and keywords exactly as in the source (often English) — do not translate them."
@@ -138,29 +139,22 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
 
     if a.detected_language == "de":
         bullets: list[str] = []
-        if step == "glossary" and wm:
+        if step == "topic_map" and wm:
             bullets.append(
-                "- Glossar: Begriffe mit mathematischen Symbolen in `$...$` setzen; bei Bedarf `$$...$$` für längere Ausdrücke. "
+                "- Topic Map: Begriffe mit mathematischen Symbolen in `$...$` setzen; bei Bedarf `$$...$$` für längere Ausdrücke. "
                 "Keine losen Unterstriche für Indizes."
             )
-        if step == "glossary" and wc:
+        if step == "topic_map" and wc:
             bullets.append(
-                "- Glossar: Code-Identifier und Schlüsselwörter in `Backticks`; mehrzeilige Signaturen in fenced Blocks."
+                "- Topic Map: Code-Identifier und Schlüsselwörter in `Backticks`; mehrzeilige Signaturen in fenced Blocks."
             )
-        if step == "teach_me" and wm:
+        if step == "core_learning" and wm:
             bullets.append(
-                "- Lernen/Erklären: Formeln in `$...$` / `$$...$$`; pro Hauptthema klar mit ##/### gliedern."
+                "- Lernen/Erklären: Formeln in `$...$` / `$$...$$`; pro Hauptthema klar mit ##/### gliedern. "
+                "Bei eingebauten Beispielen: jeden Rechenschritt mit `$...$` zeigen."
             )
-        if step == "teach_me" and wc:
+        if step == "core_learning" and wc:
             bullets.append("- Lernen/Erklären: Code in fenced Blocks zeigen, wenn die Vorlesung Code nutzt.")
-        if step == "examples_and_solutions" and wm:
-            bullets.append(
-                "- Ausgearbeitete Beispiele: jeder Rechenschritt mit `$...$`; kurz begründen, warum der Schritt folgt."
-            )
-        if step == "examples_and_solutions" and wc:
-            bullets.append(
-                "- Ausgearbeitete Beispiele: Code schrittweise oder blockweise erklären; Einrückung beibehalten."
-            )
         if step == "revision_sheet" and wm:
             bullets.append(
                 "- Merkblatt: Kernaussagen und Regeln in `$...$`; nur zum Auswendigen, was die Vorlesung wirklich verlangt."
@@ -172,29 +166,22 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
         return "\n\nZusätzlich für diese Ausgabe:\n" + "\n".join(bullets)
 
     bullets_en: list[str] = []
-    if step == "glossary" and wm:
+    if step == "topic_map" and wm:
         bullets_en.append(
-            "- Glossary: put mathematical symbols/expressions in `$...$`; use `$$...$$` for larger expressions when needed. "
+            "- Topic Map: put mathematical symbols/expressions in `$...$`; use `$$...$$` for larger expressions. "
             "Avoid raw underscores for subscripts outside math mode."
         )
-    if step == "glossary" and wc:
+    if step == "topic_map" and wc:
         bullets_en.append(
-            "- Glossary: put code identifiers/keywords in `backticks`; use fenced blocks for multi-line signatures."
+            "- Topic Map: put code identifiers/keywords in `backticks`; use fenced blocks for multi-line signatures."
         )
-    if step == "teach_me" and wm:
+    if step == "core_learning" and wm:
         bullets_en.append(
-            "- Teach Me: use `$...$` / `$$...$$` for formulas; structure each main topic with ##/### headings."
+            "- Core Learning: use `$...$` / `$$...$$` for formulas; structure each main topic with ##/### headings. "
+            "For inline examples: show each calculation step in `$...$`."
         )
-    if step == "teach_me" and wc:
-        bullets_en.append("- Teach Me: use fenced code blocks when the lecture uses code.")
-    if step == "examples_and_solutions" and wm:
-        bullets_en.append(
-            "- Worked examples: show each step; justify steps briefly; use `$...$` for all math."
-        )
-    if step == "examples_and_solutions" and wc:
-        bullets_en.append(
-            "- Worked examples: walk through code block by block or line by line where helpful; preserve indentation."
-        )
+    if step == "core_learning" and wc:
+        bullets_en.append("- Core Learning: use fenced code blocks when the lecture uses code.")
     if step == "revision_sheet" and wm:
         bullets_en.append(
             "- Revision sheet: compact formulas/rules in `$...$`; separate memorize vs understand."
@@ -238,132 +225,215 @@ def _system_prompt(a: LectureAnalysis) -> str:
     return base + "\n\n" + analysis + "\n\n" + _profile_rules(a)
 
 
-# --- Prompts: structured, predictable Markdown (language + profile via _system_prompt) ---
+# ---------------------------------------------------------------------------
+# Prompt builders
+# ---------------------------------------------------------------------------
 
 
 def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Quick Overview** als kurze Orientierung vor allen Details.\n"
-            "- 5–9 Bullet-Points oder kurze Absätze, klar und ohne Füllsätze.\n"
-            "- Beantworte: Worum geht es? Was ist die Hauptidee? Warum ist das wichtig?\n"
-            "- Beziehe den Überblick auf den tatsächlichen Vorlesungsinhalt; keine generischen Aussagen.\n"
-            "- Wenn in der Vorlesung erkennbar: kurz die Verbindung zu angrenzenden Themen nennen.\n"
-            "- Keine langen Definitionen und keine ausgearbeiteten Beispiele hier.\n\n"
+            "Erstelle **Quick Overview** — kurze Orientierung, die ich vor allem anderen lese.\n\n"
+            "Beantworte klar und kompakt:\n"
+            "- Worum geht es in dieser Vorlesung?\n"
+            "- Was ist die zentrale Idee / das Kernthema?\n"
+            "- Warum ist das wichtig — was bringt mir das Verständnis davon?\n"
+            "- Wo passt diese Vorlesung in den Kurs — was kam davor, was ermöglicht sie?\n"
+            "- Worauf soll ich mich gedanklich einstellen, bevor ich die Details lese?\n\n"
+            "Format:\n"
+            "- 5–8 knappe Bullet-Points oder kurze Absätze.\n"
+            "- Kein Fülltext. Kein generisches Lehrbuch-Intro.\n"
+            "- Keine langen Definitionen, keine ausgearbeiteten Beispiele — die kommen später.\n"
+            "- Bezug auf den tatsächlichen Vorlesungsinhalt; nichts Erfundenes.\n\n"
             "Oberste Überschrift exakt: ## Quick Overview"
         )
     else:
         extra = (
-            "Produce **Quick Overview** as the short orientation layer before details.\n"
-            "- 5–9 concise bullets or short paragraphs; no generic filler.\n"
-            "- Answer: what is this lecture about, what is the big idea, and why does it matter.\n"
-            "- Ground statements in the actual lecture text, not generic textbook claims.\n"
-            "- If inferable from the lecture, mention nearby/related topics briefly.\n"
-            "- Do not expand into full definitions or worked examples here.\n\n"
+            "Produce **Quick Overview** — the short orientation read before everything else.\n\n"
+            "Answer clearly and concisely:\n"
+            "- What is this lecture about?\n"
+            "- What is the central idea / main theme?\n"
+            "- Why does it matter — what does understanding this enable?\n"
+            "- Where does it fit in the course — what came before, what does this set up?\n"
+            "- What should I mentally focus on before reading the detailed materials?\n\n"
+            "Format:\n"
+            "- 5–8 tight bullets or short paragraphs.\n"
+            "- No generic filler. No textbook-style preamble.\n"
+            "- No full definitions, no worked examples — those come later.\n"
+            "- Ground every statement in the actual lecture, not generic claims.\n\n"
             "Top heading must be exactly: ## Quick Overview"
         )
     return sys, extra
 
 
-def _prompt_glossary(a: LectureAnalysis) -> tuple[str, str]:
+def _prompt_topic_map(
+    a: LectureAnalysis,
+    sibling_titles: list[str] | None = None,
+) -> tuple[str, str]:
     sys = _system_prompt(a)
+
+    # Build course context block for cross-lecture connections
+    if sibling_titles:
+        if a.detected_language == "de":
+            course_ctx = (
+                "\n\nAndere Vorlesungen in diesem Kurs (für Kurs-Verbindungen):\n"
+                + "\n".join(f"- {t}" for t in sibling_titles[:20])
+            )
+        else:
+            course_ctx = (
+                "\n\nOther lectures in this course (for cross-lecture connections):\n"
+                + "\n".join(f"- {t}" for t in sibling_titles[:20])
+            )
+    else:
+        course_ctx = ""
+
     if a.detected_language == "de":
         extra = (
-            "Erstelle ein **Glossar** (nur Referenz, knapp).\n"
-            "- Nur zentrale Begriffe dieser Vorlesung mit sehr kurzen Definitionen.\n"
-            "- Tabelle oder Aufzählung; keine langen Erklärungen — die kommen in „Lernen“.\n"
-            "- Beginne mit genau einer Überschrift ## Glossar."
-            + _artifact_technical_addon(a, "glossary")
+            "Erstelle **Topic Map** — die strukturelle Karte dieser Vorlesung.\n\n"
+            "Ziel: Zeige, woraus die Vorlesung besteht, was zentral ist und wie die Themen zusammenhängen.\n\n"
+            "Wichtig:\n"
+            "- Nur die wirklich wichtigen Themen/Konzepte dieser Vorlesung (ca. 6–15).\n"
+            "- Nicht jeder Begriff braucht einen Slot — nur Themen mit echter Rolle in der Vorlesung.\n"
+            "- Keine langen Erklärungen hier — das ist eine Karte, kein Lernabschnitt.\n\n"
+            "Für jedes Thema, dieses Format verwenden:\n\n"
+            "### [Themenname]\n"
+            "**Tiefe:** X/10\n"
+            "**Was es ist:** Kurze, präzise Definition (1–2 Sätze)\n"
+            "**Warum wichtig:** Kurze Begründung bezogen auf diese Vorlesung\n"
+            "**Verbindungen:** Wie es sich zu anderen Themen in dieser Vorlesung verhält\n"
+            "**Kurs-Link:** *(nur wenn sicher ableitbar)* Baut auf früheren Vorlesungsthemen auf / Grundlage für spätere Themen\n\n"
+            "---\n\n"
+            "Tiefenscore (1–10) basiert auf:\n"
+            "- Wie viel Vorlesungstext dem Thema gewidmet ist\n"
+            "- Ob es Definitionen/Notation/Formeln hat\n"
+            "- Ob Beispiele darauf aufbauen\n"
+            "- Ob spätere Ideen es voraussetzen\n"
+            "- Ob es wiederholt betont wird\n\n"
+            "Kurs-Link-Regeln:\n"
+            "- Nur wenn ein echter Bezug zum Kurs klar erkennbar ist.\n"
+            "- Vage Allgemeinaussagen weglassen.\n"
+            "- Bei Unsicherheit: weglassen statt erfinden.\n\n"
+            "Oberste Überschrift exakt: ## Topic Map"
+            + course_ctx
+            + _artifact_technical_addon(a, "topic_map")
         )
     else:
         extra = (
-            "Produce a **Glossary** (reference only — keep it tight).\n"
-            "- Only key terms from this lecture with very short definitions.\n"
-            "- Table or bullet list; do not write long explanations here (those belong in Teach Me).\n"
-            "- Start with a single ## Glossary heading."
-            + _artifact_technical_addon(a, "glossary")
+            "Produce **Topic Map** — the structural map of this lecture.\n\n"
+            "Goal: show what this lecture is made of, what is central, and how topics connect.\n\n"
+            "Rules:\n"
+            "- Only the genuinely important topics/concepts from this lecture (aim for 6–15).\n"
+            "- Not every term needs a slot — only topics with a real role in the lecture.\n"
+            "- No long explanations here — this is a map, not a teaching section.\n\n"
+            "For each topic, use this exact format:\n\n"
+            "### [Topic Name]\n"
+            "**Depth:** X/10\n"
+            "**What it is:** Short precise definition (1–2 sentences)\n"
+            "**Why it matters:** Brief reason tied to this lecture\n"
+            "**Connections:** How it relates to other topics in this lecture\n"
+            "**Course link:** *(only if safely inferable)* Builds on earlier lectures / foundational for later topics\n\n"
+            "---\n\n"
+            "Depth score (1–10) based on:\n"
+            "- How much lecture text is devoted to it\n"
+            "- Whether it has formal definitions/notation/formulas\n"
+            "- Whether examples depend on it\n"
+            "- Whether later ideas in the lecture build on it\n"
+            "- Whether it is repeatedly emphasized\n\n"
+            "Course link rules:\n"
+            "- Only include if a genuine connection to the course is clearly inferable.\n"
+            "- Omit vague generic lines like 'important in many fields'.\n"
+            "- When uncertain: omit rather than invent.\n\n"
+            "Top heading must be exactly: ## Topic Map"
+            + course_ctx
+            + _artifact_technical_addon(a, "topic_map")
         )
     return sys, extra
 
 
-def _prompt_teach_me(a: LectureAnalysis) -> tuple[str, str]:
-    """Main teaching file — tutor-style, per-topic structure."""
+def _prompt_core_learning(
+    a: LectureAnalysis,
+    topic_map_content: str | None = None,
+) -> tuple[str, str]:
+    """Main teaching file — tutor-style, depth calibrated by topic map scores."""
     sys = _system_prompt(a)
+
+    # Inject topic map as calibration context if available
+    if topic_map_content:
+        truncated = topic_map_content[:_TOPIC_MAP_CONTEXT_CHARS]
+        if a.detected_language == "de":
+            map_block = (
+                "\n\nDie Topic Map dieser Vorlesung (zur Kalibrierung der Erklärungstiefe):\n\n"
+                f"{truncated}\n\n"
+                "Nutze die Tiefenscores (1–10) aus der Topic Map:\n"
+                "- Tiefe 7–10: ausführlich erklären (Intuition + Formales + Warum + Anwendung + Beispiel + typische Verwechslung).\n"
+                "- Tiefe 4–6: klare Erklärung + warum es wichtig ist; evtl. kurzes Beispiel.\n"
+                "- Tiefe 1–3: knapp halten — genug zum Verstehen, nicht aufblähen.\n"
+            )
+        else:
+            map_block = (
+                "\n\nTopic Map for this lecture (use to calibrate explanation depth):\n\n"
+                f"{truncated}\n\n"
+                "Use the depth scores (1–10) from the Topic Map:\n"
+                "- Depth 7–10: explain thoroughly (intuition + formal + why + usage + example + pitfall).\n"
+                "- Depth 4–6: clear explanation + why it matters; maybe a short example.\n"
+                "- Depth 1–3: keep brief — enough to understand, not inflated.\n"
+            )
+    else:
+        if a.detected_language == "de":
+            map_block = (
+                "\n\nAdaptive Tiefe (da keine Topic Map verfügbar): Beurteile selbst anhand von Überschriften, "
+                "Wiederholungen und Formalisierungsgrad, was zentral ist, und erkläre dementsprechend tief.\n"
+            )
+        else:
+            map_block = (
+                "\n\nAdaptive depth (no Topic Map available): judge from lecture headings, repetition, and "
+                "formalization what is central, and calibrate depth accordingly.\n"
+            )
+
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Teach Me** als Haupt-Lernteil.\n"
-            "Schreibe wie ein Tutor und richte die Tiefe pro Thema an der Vorlesungs-Tiefe aus.\n\n"
+            "Erstelle **Core Learning** als Haupt-Lernteil.\n"
+            "Schreibe wie ein Tutor — erkläre die wichtigen Teile der Vorlesung wirklich, nicht nur auflisten.\n\n"
             "Struktur:\n"
-            "- Oberste Überschrift exakt: ## Teach Me\n"
-            "- Danach Hauptthemen mit ##-Überschriften.\n"
-            "- Unterthemen bei Bedarf mit ###.\n\n"
-            "Adaptive Tiefe (wichtig):\n"
-            "- Wenn Thema nur kurz erwähnt: 3-5 knappe Bullet-Points reichen.\n"
-            "- Wenn Thema zentral/wiederholt/formalisiert: deutlich tiefer erklären (Intuition + formal + Anwendung + typische Verwechslung).\n"
-            "- Wenn Thema strukturell zentral mit Definitionen/Notation/Beispielen: besonders gründlich und mit klaren Zusammenhängen zu anderen Themen.\n"
-            "- Nicht jedes Thema gleich lang behandeln.\n\n"
-            "Inhalt pro Thema (wo passend):\n"
-            "- Intuition in klarer Sprache.\n"
-            "- Formale Bedeutung/Regel/Notation aus der Vorlesung.\n"
-            "- Warum es wichtig ist.\n"
-            "- Wie man es in Aufgaben erkennt und anwendet.\n"
-            "- Typische Falle nur wenn plausibel.\n\n"
-            "Redundanzregeln:\n"
-            "- Keine Glossar-Definitionen in voller Länge wiederholen.\n"
-            "- Nur Inhalte aus der Vorlesung nutzen; keine künstliche Curriculum-Erweiterung."
-            + _artifact_technical_addon(a, "teach_me")
+            "- Oberste Überschrift exakt: ## Core Learning\n"
+            "- Dann Hauptthemen mit ### Überschriften (je Thema ein Abschnitt).\n"
+            "- Unterabschnitte mit #### nur wenn nötig.\n\n"
+            "Inhalt pro Thema (je nach Tiefe):\n"
+            "- Hohe Tiefe: Intuition in klarer Sprache · Formale Definition/Regel/Notation · Warum es wichtig ist · "
+            "Wie man es in Aufgaben erkennt und anwendet · Typische Verwechslung wenn plausibel · Beispiel wenn hilfreich.\n"
+            "- Mittlere Tiefe: Klare Erklärung + Warum es wichtig ist · Vielleicht ein kurzes Beispiel.\n"
+            "- Geringe Tiefe: Kurze Erklärung — genug zum Verstehen, nicht mehr.\n\n"
+            "Strikte Regeln:\n"
+            "- Nicht jedes Thema gleich lang behandeln — Tiefe folgt der Vorlesungstiefe.\n"
+            "- Keine Glossar-Definitionen in voller Länge wiederholen (Topic Map hat sie bereits).\n"
+            "- Keine Quick-Overview-Orientierung wiederholen.\n"
+            "- Nur Inhalte aus der Vorlesung; keine erfundene Erweiterung.\n"
+            "- Revision-Sheet-Inhalte (reine Stichpunkte, Merklisten) gehören nicht hierher — die kommen später."
+            + map_block
+            + _artifact_technical_addon(a, "core_learning")
         )
     else:
         extra = (
-            "Produce **Teach Me** as the main learning file.\n"
-            "Write like a tutor and adapt depth to topic importance in this lecture.\n\n"
+            "Produce **Core Learning** as the main learning section.\n"
+            "Write like a tutor — actually explain the important parts of the lecture, not just list them.\n\n"
             "Structure:\n"
-            "- Top heading must be exactly: ## Teach Me\n"
-            "- Then main topics with ## headings.\n"
-            "- Use ### only when it helps readability.\n\n"
-            "Adaptive depth (critical):\n"
-            "- Briefly mentioned/supporting topics: keep short and concise.\n"
-            "- Core/repeated/formalized topics: explain in more depth (intuition + formal meaning + usage cues + pitfalls).\n"
-            "- Deep structural topics with heavy lecture emphasis: provide the deepest treatment and relationships to nearby concepts.\n"
-            "- Do not force equal depth for every topic.\n\n"
-            "Per-topic content when relevant:\n"
-            "- Intuition in plain language.\n"
-            "- Formal definition/rule/notation from the lecture.\n"
-            "- Why it matters.\n"
-            "- How to recognize and apply it.\n"
-            "- Common confusion only if plausible.\n\n"
-            "Anti-repetition rules:\n"
-            "- Do not restate glossary definitions in full.\n"
-            "- Stay grounded in lecture scope; avoid inventing a broader curriculum."
-            + _artifact_technical_addon(a, "teach_me")
-        )
-    return sys, extra
-
-
-def _prompt_examples_and_solutions(a: LectureAnalysis) -> tuple[str, str]:
-    sys = _system_prompt(a)
-    if a.detected_language == "de":
-        extra = (
-            "Erstelle **Examples and Solutions** als Anwendungs-Teil.\n"
-            "- Fokus auf Anwenden und Lösen, nicht auf Definitionen wiederholen.\n"
-            "- Nutze bevorzugt Muster/Beispiele aus der Vorlesung, wenn erkennbar.\n"
-            "- Für technische/mathematische Inhalte: schrittweise Lösung mit knapper Begründung je Schritt.\n"
-            "- Für konzeptuelle Inhalte: konkrete Fallanwendungen/Interpretationen mit klarer Argumentation.\n"
-            "- Umfang an Vorlesungstiefe anpassen: Kern-Themen dürfen mehrere Beispiele haben, Nebenpunkte nur kurz.\n\n"
-            "Oberste Überschrift exakt: ## Examples and Solutions"
-            + _artifact_technical_addon(a, "examples_and_solutions")
-        )
-    else:
-        extra = (
-            "Produce **Examples and Solutions** as the application layer.\n"
-            "- Focus on doing/applying, not repeating definitions.\n"
-            "- Prefer example patterns that are clearly present in the lecture.\n"
-            "- For technical/math/code content: step-by-step solutions with brief reasoning per step.\n"
-            "- For conceptual lectures: concrete applied cases with clear interpretation steps.\n"
-            "- Adapt depth to lecture emphasis: major topics may have multiple examples, side topics stay concise.\n\n"
-            "Top heading must be exactly: ## Examples and Solutions"
-            + _artifact_technical_addon(a, "examples_and_solutions")
+            "- Top heading must be exactly: ## Core Learning\n"
+            "- Then main topics as ### headings (one section per topic).\n"
+            "- Sub-sections with #### only when needed.\n\n"
+            "Per-topic content (scaled by depth):\n"
+            "- High depth: intuition in plain language · formal definition/rule/notation · why it matters · "
+            "how to recognize and apply it · common confusion if plausible · example if helpful.\n"
+            "- Medium depth: clear explanation + why it matters · maybe a short example.\n"
+            "- Low depth: brief explanation only — enough to understand, no more.\n\n"
+            "Strict rules:\n"
+            "- Do NOT give every topic equal depth — depth follows lecture depth.\n"
+            "- Do not restate Topic Map definitions in full (they are already there).\n"
+            "- Do not repeat Quick Overview orientation.\n"
+            "- Stay grounded in the lecture; do not invent a broader curriculum.\n"
+            "- Pure bullet-point memorization lists belong in the Revision Sheet, not here."
+            + map_block
+            + _artifact_technical_addon(a, "core_learning")
         )
     return sys, extra
 
@@ -372,36 +442,61 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Revision Sheet** als kurze Wiederholungsseite.\n"
-            "- Kurz, skimmbar, prüfungsnah.\n"
-            "- Trenne klar: **Memorize** vs **Understand**.\n"
-            "- Fokus auf Kernregeln/Symbole/Formeln/Fakten aus der Vorlesung.\n"
-            "- Keine langen Erklärungen und keine neuen Themen.\n\n"
+            "Erstelle **Revision Sheet** — kurze, prüfungsnahe Wiederholungsseite.\n\n"
+            "Aufbau:\n"
+            "- **Auswendig lernen**: Kernregeln, Formeln, Symbole, Fakten — nur was die Vorlesung wirklich verlangt.\n"
+            "- **Konzeptuell verstehen**: Wichtige Ideen, die ich auf Anhieb erklären können muss.\n\n"
+            "Regeln:\n"
+            "- Kurz, skimmbar, prüfungsorientiert.\n"
+            "- Keine langen Erklärungen — die stehen in Core Learning.\n"
+            "- Keine neuen Themen einführen.\n"
+            "- Bullet-Listen oder kompakte Tabellen bevorzugen.\n\n"
             "Oberste Überschrift exakt: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
         )
     else:
         extra = (
-            "Produce a **Revision Sheet** — short, exam-friendly, skimmable.\n"
-            "- Key rules, formulas, facts (use `$...$` / `$$...$$` for math).\n"
-            "- Clearly separate **memorize** vs **understand conceptually**.\n"
-            "- Bullet lists; avoid long paragraphs.\n"
-            "- No new material; only what the lecture supports.\n\n"
+            "Produce a **Revision Sheet** — short, exam-friendly, skimmable.\n\n"
+            "Structure:\n"
+            "- **Memorize**: key rules, formulas, symbols, facts — only what the lecture requires.\n"
+            "- **Understand conceptually**: important ideas I must be able to explain on the spot.\n\n"
+            "Rules:\n"
+            "- Keep it concise and skimmable.\n"
+            "- No long explanations — those belong in Core Learning.\n"
+            "- No new material; only what the lecture supports.\n"
+            "- Prefer bullet lists or compact tables.\n\n"
             "Top heading must be exactly: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
         )
     return sys, extra
 
 
+# ---------------------------------------------------------------------------
+# Generation steps: (artifact_type, filename, prompt_fn, max_tokens)
+# ---------------------------------------------------------------------------
+
 GENERATION_STEPS: list[
-    tuple[str, str, Callable[[LectureAnalysis], tuple[str, str]], int]
+    tuple[str, str, Callable[..., tuple[str, str]], int]
 ] = [
     ("quick_overview", "01_quick_overview.md", _prompt_quick_overview, 3072),
-    ("glossary", "02_glossary.md", _prompt_glossary, 4096),
-    ("teach_me", "03_teach_me.md", _prompt_teach_me, 8192),
-    ("examples_and_solutions", "04_examples_and_solutions.md", _prompt_examples_and_solutions, 8192),
-    ("revision_sheet", "05_revision_sheet.md", _prompt_revision_sheet, 6144),
+    ("topic_map", "02_topic_map.md", _prompt_topic_map, 4096),
+    ("core_learning", "03_core_learning.md", _prompt_core_learning, 8192),
+    ("revision_sheet", "04_revision_sheet.md", _prompt_revision_sheet, 6144),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_sibling_titles(lecture_id: int, course_id: int) -> list[str]:
+    """Return titles of other lectures in the same course (for cross-lecture context)."""
+    try:
+        lectures = lecture_service.list_lectures_for_course(course_id)
+        return [lec["title"] for lec in lectures if int(lec["id"]) != lecture_id]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _sync_meta(
@@ -433,6 +528,11 @@ def _sync_meta(
     lecture_meta.write_meta(lecture_root, payload)
 
 
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
 def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
     """
     Full pipeline: readiness → analysis → generation_pending → OpenAI calls → files + DB → generation_complete,
@@ -459,6 +559,9 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
     analysis = analyze_extracted_text(lecture_text)
     analysis_meta = analysis.to_meta_dict()
 
+    # Sibling lecture titles for cross-lecture context in Topic Map
+    sibling_titles = _get_sibling_titles(lecture_id, int(lec["course_id"]))
+
     lecture_service.update_lecture_status(lecture_id, "generation_pending")
     lec = lecture_service.get_lecture_by_id(lecture_id)
     if lec:
@@ -472,8 +575,17 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
 
     results: list[tuple[str, str]] = []
     written_paths: list[Path] = []
+    topic_map_md: str | None = None  # passed to core_learning as calibration context
+
     for artifact_type, filename, prompt_fn, max_tok in GENERATION_STEPS:
-        system, user_extra = prompt_fn(analysis)
+        # Build prompt — pass extra context for topic_map and core_learning
+        if artifact_type == "topic_map":
+            system, user_extra = prompt_fn(analysis, sibling_titles=sibling_titles)
+        elif artifact_type == "core_learning":
+            system, user_extra = prompt_fn(analysis, topic_map_content=topic_map_md)
+        else:
+            system, user_extra = prompt_fn(analysis)
+
         ok, md, err = _run_one(
             system=system,
             extra_user_instruction=user_extra,
@@ -507,8 +619,12 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
         rel = lecture_meta.relative_to_app(out_path)
         results.append((artifact_type, rel))
 
+        # Save topic map content so core_learning can use it
+        if artifact_type == "topic_map":
+            topic_map_md = md
+
     pack_body = cleanup_generated_markdown(build_study_pack_markdown(outputs_dir))
-    pack_path = outputs_dir / "06_study_pack.md"
+    pack_path = outputs_dir / "05_study_pack.md"
     pack_path.write_text(pack_body + "\n", encoding="utf-8")
     written_paths.append(pack_path)
     results.append(("study_pack", lecture_meta.relative_to_app(pack_path)))
