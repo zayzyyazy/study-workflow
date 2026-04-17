@@ -147,6 +147,12 @@ _ORG_PATTERNS = [
         re.I,
     ),
     re.compile(
+        r"\b(übungsgruppe|übungsgruppen|übungsgruppenwahl|tauschbörse|tauschboerse|"
+        r"fragen zum übungsablauf|fragen zum ubungsablauf|nächste schritte|naechste schritte|"
+        r"nächste woche|naechste woche|installieren sie|denken sie an eine maus)\b",
+        re.I,
+    ),
+    re.compile(
         r"\b(please submit|submit by|due:|due on|readings for|next week we|"
         r"important dates|course schedule|tentative schedule)\b",
         re.I,
@@ -544,6 +550,28 @@ def _structural_signals(
     return sgs, tg, fd, cd
 
 
+def _org_hits_for_kind(sample: str) -> float:
+    """
+    Raw admin/logistics hit count, adjusted when logistics cluster in the first slides only.
+
+    Prevents a content-heavy lecture from being labeled organizational because the PDF opens
+    with Moodle/Termine/Organisatorisches while the remainder is dense teaching text.
+    """
+    raw = _pattern_hits(_ORG_PATTERNS, sample)
+    n = len(sample)
+    if n < 5000:
+        return raw
+    head_len = min(int(n * 0.12), 4000)
+    if head_len < 700:
+        return raw
+    org_head = _pattern_hits(_ORG_PATTERNS, sample[:head_len])
+    org_rest = _pattern_hits(_ORG_PATTERNS, sample[head_len:])
+    if org_head >= 4.0 and org_rest <= org_head * 0.52 and n >= 6500:
+        blended = org_rest + org_head * 0.28 + 1.0
+        return float(min(raw, max(blended, org_rest * 1.05)))
+    return raw
+
+
 def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bool]:
     """
     Detect exercise sheets / task-heavy combined sources.
@@ -567,21 +595,45 @@ def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bo
     return has_exercise_material, dens, pse
 
 
-def analyze_extracted_text(text: str, *, generation_mode: GenerationMode = "legacy") -> LectureAnalysis:
+def analyze_extracted_text(
+    text: str,
+    *,
+    generation_mode: GenerationMode = "legacy",
+    lecture_core_text: str | None = None,
+    exercise_text: str | None = None,
+) -> LectureAnalysis:
     """
     Analyze truncated or full extracted lecture text.
+
+    When ``lecture_core_text`` is provided (e.g. multi-source: lecture PDFs without exercise sheets),
+    classification and structural signals use it so Übungsblätter do not dilute lecture kind or headings.
+
+    ``exercise_text`` (when non-empty) drives practical / task-density heuristics without affecting
+    organizational vs content classification.
 
     generation_mode:
       - legacy: conservative organizational vs content classification (default).
       - strict_v2: stronger veto against false organizational labels on content-heavy lectures.
     """
-    sample = text if len(text) <= 120_000 else text[:120_000]
-    lang = _detect_language(sample)
+    full_sample = text if len(text) <= 120_000 else text[:120_000]
+
+    core_in = (lecture_core_text or "").strip()
+    if len(core_in) >= 120:
+        sample = core_in if len(core_in) <= 120_000 else core_in[:120_000]
+        core_source = "split"
+    else:
+        sample = full_sample
+        core_source = "full"
+
+    ex_in = (exercise_text or "").strip()
+    ex_sample = ex_in if len(ex_in) <= 120_000 else ex_in[:120_000]
+
+    lang = _detect_language(sample if len(sample) >= 80 else full_sample)
     ms = _math_score(sample)
     cs = _code_score(sample)
     profile, hf, hc = _pick_profile(ms, cs)
 
-    org_hits = _pattern_hits(_ORG_PATTERNS, sample)
+    org_hits = _org_hits_for_kind(sample)
     proof_hits = _pattern_hits(_PROOF_PATTERNS, sample)
     def_hits = _pattern_hits(_DEF_PATTERNS, sample)
     ex_hits = _pattern_hits(_EXAMPLE_PATTERNS, sample)
@@ -600,7 +652,13 @@ def analyze_extracted_text(text: str, *, generation_mode: GenerationMode = "lega
         generation_mode=generation_mode,
     )
     depth = _depth_band(sample, ms, heading_lines)
-    has_ex, pract_dens, pse = _practical_exercise_signals(sample)
+
+    if len(ex_sample) >= 200:
+        has_ex, pract_dens, pse = _practical_exercise_signals(ex_sample)
+        has_ex = True
+    else:
+        has_ex, pract_dens, pse = _practical_exercise_signals(full_sample)
+
     sgs, tgran, fden, cden = _structural_signals(
         sample, math_s=ms, proof_hits=proof_hits, def_hits=def_hits, heading_lines=heading_lines
     )
@@ -609,7 +667,8 @@ def analyze_extracted_text(text: str, *, generation_mode: GenerationMode = "lega
         f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} proof={proof_hits:.1f} "
         f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
         f"exercise_material={has_ex} practical={pract_dens} pse={pse} "
-        f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden} gen_mode={generation_mode}"
+        f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden} gen_mode={generation_mode} "
+        f"core_src={core_source} ex_split_chars={len(ex_sample)}"
     )
     return LectureAnalysis(
         detected_language=lang,

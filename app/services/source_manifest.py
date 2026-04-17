@@ -7,6 +7,7 @@ Legacy lectures: no manifest file — we treat DB primary path as the only sourc
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -152,6 +153,63 @@ def combine_extracted_text(lecture_root: Path, files: list[dict[str, Any]]) -> t
     if not combined:
         return False, "", "No extractable text from any source file."
     return True, combined, "; ".join(msgs[:5]) if msgs else "Combined extraction OK."
+
+
+_SOURCE_HEADER = re.compile(
+    r"^## Source:\s*(?P<name>[^\n]+)\n\*\*Role:\*\*\s*(?P<role>[a-zA-Z_]+)",
+    re.MULTILINE,
+)
+
+
+def split_combined_extracted_text(full_text: str) -> tuple[str, str, str]:
+    """
+    Split multi-source extracted_text.txt into role buckets (body text only, no per-source headers).
+
+    Returns (lecture_core, exercise_text, notes_text) where lecture_core merges roles
+    lecture + notes + other. Legacy single-source text (no ``## Source:`` markers)
+    is returned as (stripped full text, "", "").
+
+    Raw extraction is unchanged on disk; this is for analysis and generation weighting only.
+    """
+    text = (full_text or "").strip()
+    if not text:
+        return "", "", ""
+    if "## Source:" not in text or "**Role:**" not in text:
+        return text, "", ""
+
+    lecture_parts: list[str] = []
+    exercise_parts: list[str] = []
+    notes_parts: list[str] = []
+
+    for chunk in re.split(r"\n\n---\n\n", text):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        m = _SOURCE_HEADER.match(chunk)
+        if not m:
+            lecture_parts.append(chunk)
+            continue
+        role = m.group("role").lower().strip()
+        body = chunk[m.end() :].strip()
+        if role == "exercise":
+            exercise_parts.append(body)
+        elif role == "notes":
+            notes_parts.append(body)
+        else:
+            lecture_parts.append(body)
+
+    lecture_core = "\n\n".join(lecture_parts).strip()
+    exercise_only = "\n\n".join(exercise_parts).strip()
+    notes_only = "\n\n".join(notes_parts).strip()
+    # Notes support the main teaching line — fold into lecture core for structure/topics.
+    if notes_only:
+        lecture_core = (lecture_core + "\n\n" + notes_only).strip() if lecture_core else notes_only
+
+    if not lecture_core and (exercise_only or notes_only):
+        # Degenerate manifest; fall back so callers still have material
+        return text, exercise_only, ""
+
+    return lecture_core, exercise_only, ""
 
 
 def relative_to_app(path: Path) -> str:

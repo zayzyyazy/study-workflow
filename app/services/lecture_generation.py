@@ -13,10 +13,14 @@ from app.services import lecture_meta
 from app.services.generation_markdown_cleanup import cleanup_generated_markdown
 from app.services.lecture_analysis import LectureAnalysis, analyze_extracted_text
 from app.services.lecture_paths import lecture_root_from_source_relative
+from app.services.source_manifest import split_combined_extracted_text
 from app.services.study_output_paths import build_study_pack_markdown
 
 # Avoid huge prompts: model context is limited; this keeps requests safe for typical lectures.
 MAX_LECTURE_CHARS = 120_000
+# After role split, cap layers so exercise sheets do not crowd out lecture core.
+MAX_LAYER_LECTURE_CORE_CHARS = 92_000
+MAX_LAYER_EXERCISE_CHARS = 24_000
 # Cap how much of the topic map we pass into the core_learning prompt as context
 _TOPIC_MAP_CONTEXT_CHARS = 3_000
 
@@ -40,16 +44,117 @@ def _base_user_block(course_name: str, lecture_title: str, lecture_text: str) ->
     )
 
 
+def _truncate_layered_lecture_exercise(lecture_core: str, exercise_text: str) -> tuple[str, str]:
+    """Per-role caps so Übungsmaterial stays secondary in the prompt budget."""
+    note = "\n\n---\n\n*[Note: Truncated for generation.]*\n"
+    ex = exercise_text
+    if len(ex) > MAX_LAYER_EXERCISE_CHARS:
+        ex = ex[:MAX_LAYER_EXERCISE_CHARS] + note
+    if not ex.strip():
+        lc = lecture_core
+        if len(lc) > MAX_LECTURE_CHARS:
+            lc = lc[:MAX_LECTURE_CHARS] + note
+        return lc, ""
+    lc = lecture_core
+    if len(lc) > MAX_LAYER_LECTURE_CORE_CHARS:
+        lc = lc[:MAX_LAYER_LECTURE_CORE_CHARS] + note
+    return lc, ex
+
+
+def _layered_material_block(
+    course_name: str,
+    lecture_title: str,
+    lecture_core: str,
+    exercise_text: str,
+    *,
+    language_is_de: bool,
+    is_organizational: bool,
+) -> str:
+    """
+    Primary block = Vorlesung (and notes/other); secondary = Übungs-PDFs.
+    Admin/logistics must not drive structure unless the unit is organizational (flag).
+    """
+    org_note_de = ""
+    org_note_en = ""
+    if is_organizational:
+        org_note_de = (
+            "\n(Hinweis: Diese Einheit wirkt überwiegend organisatorisch — Logistik darf hier sachlich vorkommen.)\n"
+        )
+        org_note_en = (
+            "\n(Note: This unit looks mostly organizational — logistics may appear proportionally.)\n"
+        )
+
+    if language_is_de:
+        primary = (
+            f"Course: {course_name}\n"
+            f"Lecture title: {lecture_title}\n"
+            f"{org_note_de}"
+            f"\n### Vorlesungskern (primär)\n"
+            f"Nutze diesen Block für **Quick Overview**, **Roadmap/Inhaltsverzeichnis**, **Topic Roadmap** und "
+            f"**Topic Lessons**: echte Überschriften, Begriffe und Unterkapitel aus der Vorlesung.\n"
+            f"Ignoriere **Organisatorisches, Moodle, Termine, Übungsgruppenwahl, Installationshinweise, "
+            f"„Nächste Schritte“** als **keine** zentralen Lernthemen — außer die Einheit ist klar nur Logistik.\n\n"
+            f"{lecture_core}"
+        )
+        secondary = (
+            f"\n\n---\n\n### Übungs- / Aufgabenmaterial (sekundär)\n"
+            f"Nur für: typische **Fragestellungen**, **Aufgabenmuster**, **Missverständnisse**, "
+            f"**praktische Relevanz**, **Prüfungsnähe** — **nicht** für die Themenstruktur, **nicht** als Ersatz "
+            f"für Vorlesungsüberschriften, **keine** künstlichen „Übungs-Themen“ in der Roadmap.\n\n"
+            f"{exercise_text}"
+        )
+    else:
+        primary = (
+            f"Course: {course_name}\n"
+            f"Lecture title: {lecture_title}\n"
+            f"{org_note_en}"
+            f"\n### Primary lecture core\n"
+            f"Use this block for **Quick Overview**, **roadmap/TOC**, **Topic Roadmap**, and **Topic Lessons**: "
+            f"real headings, terms, and subsections from the lecture.\n"
+            f"Treat **logistics, LMS, deadlines, exercise-group signup, install reminders, “next steps”** as "
+            f"**not** central study topics — unless the unit is clearly administrative only.\n\n"
+            f"{lecture_core}"
+        )
+        secondary = (
+            f"\n\n---\n\n### Secondary: exercises / practice sheets\n"
+            f"Use only for: typical **task patterns**, **wording**, **misconceptions**, **practical emphasis**, "
+            f"**exam relevance** — **do not** replace lecture structure; **do not** invent roadmap topics from tasks.\n\n"
+            f"{exercise_text}"
+        )
+    return primary + secondary
+
+
+def _material_user_block(
+    course_name: str,
+    lecture_title: str,
+    lecture_core: str,
+    exercise_text: str,
+    *,
+    language_is_de: bool,
+    is_organizational: bool,
+) -> str:
+    if not (exercise_text or "").strip():
+        return _base_user_block(course_name, lecture_title, lecture_core)
+    return _layered_material_block(
+        course_name,
+        lecture_title,
+        lecture_core,
+        exercise_text.strip(),
+        language_is_de=language_is_de,
+        is_organizational=is_organizational,
+    )
+
+
 def _run_one(
     *,
     system: str,
     extra_user_instruction: str,
     course_name: str,
     lecture_title: str,
-    lecture_text: str,
+    material_block: str,
     max_tokens: int = 4096,
 ) -> tuple[bool, str, str]:
-    user = extra_user_instruction.strip() + "\n\n" + _base_user_block(course_name, lecture_title, lecture_text)
+    user = extra_user_instruction.strip() + "\n\n" + material_block
     return openai_service.chat_completion_markdown(
         system_prompt=system, user_prompt=user, max_tokens=max_tokens
     )
@@ -1470,7 +1575,24 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
     course_name = prep.payload["course_name"]
     lecture_title = prep.payload["lecture_title"]
     lecture_text = _truncate_for_generation(prep.payload["extracted_text"])
-    analysis = analyze_extracted_text(lecture_text, generation_mode=GENERATION_MODE)
+    lecture_core_raw, exercise_raw, _ = split_combined_extracted_text(lecture_text)
+    if not (lecture_core_raw or "").strip():
+        lecture_core_raw = lecture_text
+    lecture_core_t, exercise_t = _truncate_layered_lecture_exercise(lecture_core_raw.strip(), (exercise_raw or "").strip())
+    analysis = analyze_extracted_text(
+        lecture_text,
+        generation_mode=GENERATION_MODE,
+        lecture_core_text=lecture_core_t,
+        exercise_text=exercise_t,
+    )
+    material_block = _material_user_block(
+        course_name,
+        lecture_title,
+        lecture_core_t,
+        exercise_t,
+        language_is_de=analysis.detected_language == "de",
+        is_organizational=analysis.is_organizational,
+    )
     analysis_meta = analysis.to_meta_dict()
     analysis_meta["generation_mode_used"] = GENERATION_MODE
 
@@ -1496,11 +1618,11 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
         # Build prompt — pass extra context for topic_map and core_learning
         if artifact_type == "topic_map":
             system, user_extra = prompt_fn(
-                analysis, sibling_titles=sibling_titles, lecture_text=lecture_text
+                analysis, sibling_titles=sibling_titles, lecture_text=lecture_core_t
             )
         elif artifact_type == "core_learning":
             system, user_extra = prompt_fn(
-                analysis, topic_map_content=topic_map_md, lecture_text=lecture_text
+                analysis, topic_map_content=topic_map_md, lecture_text=lecture_core_t
             )
         else:
             system, user_extra = prompt_fn(analysis)
@@ -1510,7 +1632,7 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
             extra_user_instruction=user_extra,
             course_name=course_name,
             lecture_title=lecture_title,
-            lecture_text=lecture_text,
+            material_block=material_block,
             max_tokens=max_tok,
         )
         if not ok:

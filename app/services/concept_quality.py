@@ -105,6 +105,14 @@ _BOILERPLATE_SUBSTRINGS: Final = frozenset(
         "inhaltsverzeichnis",
         "topic roadmap",
         "themen-roadmap",
+        "organisatorisches",
+        "übungsgruppe",
+        "übungsgruppen",
+        "übungsgruppenwahl",
+        "tauschbörse",
+        "nächste schritte",
+        "moodle",
+        "übungsablauf",
     }
 )
 
