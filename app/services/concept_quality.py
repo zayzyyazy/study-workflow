@@ -85,6 +85,13 @@ _STOP: Final = frozenset(
         "study pack",
         "merkblatt",
         "klausurvorbereitung",
+        "tiefe",
+        "verbindungen",
+        "depth",
+        "connections",
+        "priorität",
+        "priority",
+        "hinweis",
     }
 )
 
@@ -113,6 +120,28 @@ _BOILERPLATE_SUBSTRINGS: Final = frozenset(
         "nächste schritte",
         "moodle",
         "übungsablauf",
+        "aufgabe zu",
+        "auswendig lernen",
+        "konzeptuell verstehen",
+        "typische fragestellungen",
+        "typische fehler",
+        "typische fehltritte",
+        "typische missverständnisse",
+        "kurs-link",
+        "warum wichtig",
+        "was es ist",
+        "prüfungsnähe",
+        "prüfungsbezug",
+        "übungs- und prüfungsbezug",
+        "course link",
+        "why it matters",
+        "what it is",
+        "typical misunderstandings",
+        "typical slips",
+        "tasks / exam angle",
+        "aufgaben / prüfungsnähe",
+        "**priorität:**",
+        "priorität:",
     }
 )
 
@@ -216,6 +245,10 @@ def is_noise_concept(text: str, *, mode: str = "strict") -> bool:
     if key in _STOP:
         return True
     if key in {"main", "details", "setup", "context", "today", "next", "previous"}:
+        return True
+    if re.match(r"^aufgabe\s+zu\b", key):
+        return True
+    if re.match(r"^typische\s+(fehler|fehltritte|fragestellungen|missverständnisse)\b", key):
         return True
     for phrase in _BOILERPLATE_SUBSTRINGS:
         if phrase in key:

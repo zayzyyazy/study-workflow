@@ -553,6 +553,19 @@ def _classify_lecture_kind(
         if domain_score >= 6.0 and def_hits >= 4.0 and heading_lines >= 5:
             return "conceptual", False, False
 
+    # Long, structured teaching units often fell through as "general" — prefer conceptual when clearly content-heavy
+    if math_s < 4.5 and code_s < 4.5:
+        if n_chars >= 10_000 and heading_lines >= 7:
+            return "conceptual", False, False
+        if n_chars >= 7500 and heading_lines >= 9:
+            return "conceptual", False, False
+        if n_chars >= 6500 and heading_lines >= 6 and domain_score >= 4.0:
+            return "conceptual", False, False
+        if n_chars >= 7000 and heading_lines >= 5 and def_hits >= 4.0:
+            return "conceptual", False, False
+        if n_chars >= 9000 and heading_lines >= 4 and def_hits >= 3.5 and ex_hits < 25.0:
+            return "conceptual", False, False
+
     return "general", False, False
 
 
