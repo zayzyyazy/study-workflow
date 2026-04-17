@@ -348,6 +348,16 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
     body_html = ""
     if md and md.strip():
         body_html = markdown_to_lecture_html(md)
+
+    subtopics: list[dict] = []
+    if md and md.strip():
+        subtopics = topic_deep_dive_service.parse_deep_dive_section_headings(md)
+
+    questions_html: dict[str, str | None] = {}
+    for d in topic_deep_dive_service.QUESTION_DIFFICULTIES:
+        qraw = topic_deep_dive_service.read_example_questions(root, topic_slug, d)
+        questions_html[d] = markdown_to_lecture_html(qraw) if qraw and qraw.strip() else None
+
     return templates.TemplateResponse(
         request,
         "topic_deep_dive.html",
@@ -359,6 +369,9 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
             "topic_slug": topic_slug,
             "body_html": body_html,
             "has_content": bool(md and md.strip()),
+            "subtopics": subtopics,
+            "questions_html": questions_html,
+            "question_difficulties": topic_deep_dive_service.QUESTION_DIFFICULTIES,
             "notice": notice,
             "error": err_q,
         },
@@ -391,6 +404,120 @@ def post_generate_topic_deep_dive(lecture_id: int, topic_slug: str) -> RedirectR
     n = quote(msg)
     return RedirectResponse(
         url=f"/lectures/{lecture_id}/topics/{topic_slug}?notice={n}",
+        status_code=303,
+    )
+
+
+@router.post("/lectures/{lecture_id}/topics/{topic_slug}/questions/generate", response_model=None)
+def post_generate_topic_questions(
+    lecture_id: int,
+    topic_slug: str,
+    difficulty: str = Form(...),
+) -> RedirectResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    _tm, topics, err = topic_deep_dive_service.load_topic_map_and_topics(root)
+    if err:
+        return RedirectResponse(url=f"/lectures/{lecture_id}?error={quote(err)}", status_code=303)
+    if topic_deep_dive_service.topic_entry_by_slug(topics, topic_slug) is None:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Unknown topic.')}",
+            status_code=303,
+        )
+    ok, msg = topic_deep_dive_service.run_generate_example_questions(lecture_id, topic_slug, difficulty)
+    if not ok:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}/topics/{topic_slug}?error={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}/topics/{topic_slug}?notice={quote(msg)}",
+        status_code=303,
+    )
+
+
+@router.get(
+    "/lectures/{lecture_id}/topics/{topic_slug}/sub/{subslug}",
+    response_class=HTMLResponse,
+)
+def topic_subtopic_dive_page(request: Request, lecture_id: int, topic_slug: str, subslug: str) -> HTMLResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    _tm, topics, err = topic_deep_dive_service.load_topic_map_and_topics(root)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    entry = topic_deep_dive_service.topic_entry_by_slug(topics, topic_slug)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Unknown topic.")
+
+    parent_md = topic_deep_dive_service.read_deep_dive_markdown(root, topic_slug)
+    if not (parent_md or "").strip():
+        raise HTTPException(status_code=400, detail="Generate the topic deep dive first.")
+
+    headings = topic_deep_dive_service.parse_deep_dive_section_headings(parent_md)
+    stitle = topic_deep_dive_service.subtopic_title_for_slug(headings, subslug)
+    if not stitle:
+        raise HTTPException(status_code=404, detail="Unknown subtopic.")
+
+    sub_md = topic_deep_dive_service.read_subtopic_dive(root, topic_slug, subslug)
+    notice = request.query_params.get("notice")
+    err_q = request.query_params.get("error")
+    body_html = ""
+    if sub_md and sub_md.strip():
+        body_html = markdown_to_lecture_html(sub_md)
+
+    return templates.TemplateResponse(
+        request,
+        "topic_subtopic_dive.html",
+        {
+            "title": f"{stitle} — {entry['title']}",
+            "lecture": lecture,
+            "lecture_id": lecture_id,
+            "topic": entry,
+            "topic_slug": topic_slug,
+            "subslug": subslug,
+            "subtopic_title": stitle,
+            "body_html": body_html,
+            "has_content": bool(sub_md and sub_md.strip()),
+            "notice": notice,
+            "error": err_q,
+        },
+    )
+
+
+@router.post(
+    "/lectures/{lecture_id}/topics/{topic_slug}/sub/{subslug}/generate",
+    response_model=None,
+)
+def post_generate_subtopic_dive(
+    lecture_id: int,
+    topic_slug: str,
+    subslug: str,
+) -> RedirectResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    _tm, topics, err = topic_deep_dive_service.load_topic_map_and_topics(root)
+    if err:
+        return RedirectResponse(url=f"/lectures/{lecture_id}?error={quote(err)}", status_code=303)
+    if topic_deep_dive_service.topic_entry_by_slug(topics, topic_slug) is None:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Unknown topic.')}",
+            status_code=303,
+        )
+    ok, msg = topic_deep_dive_service.run_generate_subtopic_dive(lecture_id, topic_slug, subslug)
+    if not ok:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}/topics/{topic_slug}/sub/{subslug}?error={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}/topics/{topic_slug}/sub/{subslug}?notice={quote(msg)}",
         status_code=303,
     )
 

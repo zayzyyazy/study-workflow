@@ -17,6 +17,7 @@ from app.services.lecture_generation import (
     _analysis_signal_lines,
     _artifact_technical_addon,
     _exercise_application_addon,
+    _profile_rules,
     _system_prompt,
     _truncate_layered_lecture_exercise,
     _example_policy_line,
@@ -528,3 +529,371 @@ def missing_deep_dives_by_course_summary() -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+# --- Example questions (per topic, per difficulty) & subtopic deep dives -----------------
+
+QUESTION_DIFFICULTIES = ("easy", "medium", "hard")
+
+_H2_HEADING = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+
+
+def example_questions_path(lecture_root: Path, topic_slug: str, difficulty: str) -> Path:
+    d = (difficulty or "").strip().lower()
+    if d not in QUESTION_DIFFICULTIES:
+        d = "medium"
+    return deep_dives_root(lecture_root) / f"{topic_slug}_questions_{d}.md"
+
+
+def subtopic_dive_path(lecture_root: Path, topic_slug: str, subslug: str) -> Path:
+    return deep_dives_root(lecture_root) / f"{topic_slug}_sub_{subslug}.md"
+
+
+def parse_deep_dive_section_headings(md: str, *, max_items: int = 24) -> list[dict[str, str]]:
+    """## headings inside a topic deep dive → navigable subtopics."""
+    text = md or ""
+    raw_titles: list[str] = []
+    for m in _H2_HEADING.finditer(text):
+        t = m.group(1).strip()
+        t = re.sub(r"\*+|_", "", t).strip()
+        if len(t) < 2:
+            continue
+        raw_titles.append(t)
+    used: set[str] = set()
+    out: list[dict[str, str]] = []
+    for t in raw_titles[:max_items]:
+        base = slugify(t) or "section"
+        s = base
+        n = 2
+        while s in used:
+            s = f"{base}-{n}"
+            n += 1
+        used.add(s)
+        out.append({"title": t, "subslug": s})
+    return out
+
+
+def extract_h2_section_content(md: str, heading_title: str) -> str:
+    """Body under ## heading until next ## (heading matched case-insensitively; strips markdown emphasis)."""
+    want = re.sub(r"\*+|_", "", heading_title).strip().lower()
+    text = md or ""
+    for m in _H2_HEADING.finditer(text):
+        inner = m.group(1).strip()
+        inner_clean = re.sub(r"\*+|_", "", inner).strip().lower()
+        if inner_clean != want:
+            continue
+        start = m.end()
+        rest = text[start:]
+        nxt = re.search(r"^##\s+", rest, re.MULTILINE)
+        body = rest[: nxt.start()] if nxt else rest
+        return body.strip()[:24_000]
+    esc = re.escape(heading_title.strip())
+    pat = rf"(?ms)^##\s+{esc}\s*$(.*?)(?=^##\s+|\Z)"
+    m2 = re.search(pat, text)
+    if m2:
+        return m2.group(1).strip()[:24_000]
+    return ""
+
+
+def read_example_questions(lecture_root: Path, topic_slug: str, difficulty: str) -> str | None:
+    p = example_questions_path(lecture_root, topic_slug, difficulty)
+    if not p.is_file():
+        return None
+    try:
+        return p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def read_subtopic_dive(lecture_root: Path, topic_slug: str, subslug: str) -> str | None:
+    p = subtopic_dive_path(lecture_root, topic_slug, subslug)
+    if not p.is_file():
+        return None
+    try:
+        return p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def subtopic_title_for_slug(headings: list[dict[str, str]], subslug: str) -> str | None:
+    for h in headings:
+        if h.get("subslug") == subslug:
+            return h.get("title")
+    return None
+
+
+def _prompt_example_questions(
+    *,
+    analysis: LectureAnalysis,
+    course_name: str,
+    lecture_title: str,
+    topic_title: str,
+    difficulty: str,
+    topic_deep_dive_excerpt: str,
+    material_block: str,
+) -> tuple[str, str]:
+    diff = difficulty.lower().strip()
+    if diff not in QUESTION_DIFFICULTIES:
+        diff = "medium"
+
+    if analysis.detected_language == "de":
+        diff_rules = {
+            "easy": "Schwierigkeit **leicht**: Grundlagen, Definitionen, kurze Nachfragen, direkte Wiedergabe aus der Vorlesung.",
+            "medium": "Schwierigkeit **mittel**: Unterscheidungen, kurze Anwendung, typische Prüfungsfragen auf Kursniveau.",
+            "hard": "Schwierigkeit **anspruchsvoll (Prüfungsniveau dieser Veranstaltung)**: Vernetzung, Edge-Cases **nur wenn** die Quelle das nahelegt — **kein** Wettbewerbsniveau, keine externe Theorie.",
+        }
+        sys_extra = (
+            "Du erstellst **Übungsfragen** zu genau einem Thema. Nur aus Vorlesung + Übungsmaterial; "
+            "Formulierungen und Fragetypen am Übungsblatt orientieren wenn vorhanden. "
+            "Keine generischen Lehrbuch-Quizfragen.\n"
+        )
+        structure = (
+            "Ausgabe in **Markdown**:\n"
+            "- Eine kurze Zeile: `# Beispielfragen` und Untertitel mit Schwierigkeit.\n"
+            "- **4–6 nummerierte Fragen** (`### Frage 1` …).\n"
+            "- Zu jeder Frage: **Kurzantwort-Richtung** in einem Absatz unter `#### Richtung` (keine vollständige Musterlösung erzwingen).\n"
+            "- Optional `#### Typ` mit einem Wort: z. B. erklären / unterscheiden / anwenden / begründen.\n"
+        )
+    else:
+        diff_rules = {
+            "easy": "**Easy**: basics, definitions, short recall aligned with the lecture.",
+            "medium": "**Medium**: distinctions, short application, typical exam-style prompts for this course.",
+            "hard": "**Hard (within this course/exam)**: connect ideas, subtler cases **only if** the source supports it — not competition-level, no external theory.",
+        }
+        sys_extra = (
+            "You write **practice questions** for exactly one topic. Ground in lecture + exercise material only; "
+            "mirror worksheet phrasing when present. No generic textbook trivia.\n"
+        )
+        structure = (
+            "Output **Markdown**:\n"
+            "- `# Practice questions` plus difficulty in the subtitle.\n"
+            "- **4–6 questions** as `### Question 1` …\n"
+            "- Under each: `#### Direction` — short expected answer direction (not a full model essay unless the source has it).\n"
+            "- Optional `#### Type`: explain / distinguish / apply / reason.\n"
+        )
+
+    user = (
+        f"Course: {course_name}\nLecture: {lecture_title}\nTopic: {topic_title}\n\n"
+        f"{diff_rules.get(diff, diff_rules['medium'])}\n\n"
+        f"{structure}\n\n"
+        "### Topic deep dive (context — do not repeat verbatim, use for scope)\n\n"
+        f"{_truncate_for_prompt(topic_deep_dive_excerpt, 8000)}\n\n"
+        "### Source material (lecture [+ exercises])\n\n"
+        f"{material_block}\n"
+    )
+    system = _system_prompt(analysis) + "\n\n" + sys_extra + "\n" + _profile_rules(analysis)
+    return system, user
+
+
+def run_generate_example_questions(
+    lecture_id: int, topic_slug: str, difficulty: str
+) -> tuple[bool, str]:
+    if not openai_service.is_openai_configured():
+        return False, "OpenAI is not configured. Set OPENAI_API_KEY in your .env file."
+
+    diff = (difficulty or "").strip().lower()
+    if diff not in QUESTION_DIFFICULTIES:
+        return False, "Invalid difficulty."
+
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        return False, "Lecture not found."
+
+    prep = prepare_generation_inputs(lecture_id)
+    if not prep.ok or not prep.payload:
+        return False, prep.reason
+
+    lecture_root = lecture_root_from_source_relative(lec["source_file_path"])
+    topic_map_md, topics, err = load_topic_map_and_topics(lecture_root)
+    if err:
+        return False, err
+    entry = topic_entry_by_slug(topics, topic_slug)
+    if not entry:
+        return False, "Unknown topic slug."
+
+    parent_md = read_deep_dive_markdown(lecture_root, topic_slug)
+    if not (parent_md or "").strip():
+        return False, "Generate the topic deep dive first."
+
+    topic_title = entry["title"]
+    full_text = prep.payload["extracted_text"]
+    lecture_core, exercise_raw, _ = split_combined_extracted_text(full_text)
+    if not (lecture_core or "").strip():
+        lecture_core = full_text
+    analysis = analyze_extracted_text(
+        full_text,
+        generation_mode=GENERATION_MODE,
+        lecture_core_text=lecture_core,
+        exercise_text=exercise_raw,
+    )
+    lc, ex = _truncate_layered_lecture_exercise(lecture_core, exercise_raw)
+    material_block = _layered_material_block(
+        prep.payload["course_name"],
+        prep.payload["lecture_title"],
+        lc,
+        ex,
+        language_is_de=analysis.detected_language == "de",
+        is_organizational=analysis.is_organizational,
+    )
+    material_block = _truncate_for_prompt(material_block, 72_000)
+
+    sys_p, user_p = _prompt_example_questions(
+        analysis=analysis,
+        course_name=prep.payload["course_name"],
+        lecture_title=prep.payload["lecture_title"],
+        topic_title=topic_title,
+        difficulty=diff,
+        topic_deep_dive_excerpt=parent_md,
+        material_block=material_block,
+    )
+
+    ok, md_out, err_msg = openai_service.chat_completion_markdown(
+        system_prompt=sys_p,
+        user_prompt=user_p,
+        max_tokens=4096,
+    )
+    if not ok:
+        return False, err_msg or "Generation failed."
+
+    md_out = cleanup_generated_markdown(md_out)
+    if not md_out.strip():
+        return False, "Model returned empty text."
+
+    deep_dives_root(lecture_root).mkdir(parents=True, exist_ok=True)
+    example_questions_path(lecture_root, topic_slug, diff).write_text(
+        md_out.strip() + "\n", encoding="utf-8"
+    )
+    return True, f"Example questions ({diff}) saved."
+
+
+def _prompt_subtopic_dive(
+    *,
+    analysis: LectureAnalysis,
+    course_name: str,
+    lecture_title: str,
+    topic_title: str,
+    subtopic_title: str,
+    parent_section_excerpt: str,
+    topic_deep_dive_excerpt: str,
+    material_block: str,
+) -> tuple[str, str]:
+    if analysis.detected_language == "de":
+        sys_extra = (
+            "**Subtopic Deep Dive:** Nur dieses eine Subthema — **vertiefter** als der Abschnitt in der "
+            "Topic Deep Dive, aber **nicht** enzyklopädisch. Nur was Vorlesung + Übungen hergeben; "
+            "keine neuen Fachgebiete.\n"
+        )
+        user_extra = (
+            "Struktur (Markdown mit ##/###):\n"
+            "## Kurz einordnen\n## Kernpunkte vertieft\n## Typische Fehlvorstellungen\n"
+            "## Mini-Beispiel oder Kurzaufgabe (wenn die Quelle das trägt)\n\n"
+        )
+    else:
+        sys_extra = (
+            "**Subtopic deep dive:** Only this sub-topic — **deeper** than the section in the parent deep dive, "
+            "not encyclopedic. Source-bound; no new domains.\n"
+        )
+        user_extra = (
+            "Structure (Markdown ##/###):\n"
+            "## Place it\n## Core ideas (deeper)\n## Common confusions\n"
+            "## Tiny example or prompt (if supported by source)\n\n"
+        )
+
+    user = (
+        f"Course: {course_name}\nLecture: {lecture_title}\nTopic: {topic_title}\n"
+        f"**Subtopic focus:** {subtopic_title}\n\n"
+        f"{user_extra}"
+        "### Parent section (this subtopic only)\n\n"
+        f"{_truncate_for_prompt(parent_section_excerpt or topic_deep_dive_excerpt, 14_000)}\n\n"
+        "### Full topic deep dive (broader context, truncated)\n\n"
+        f"{_truncate_for_prompt(topic_deep_dive_excerpt, 6000)}\n\n"
+        "### Source material (lecture [+ exercises])\n\n"
+        f"{material_block}\n"
+    )
+    system = _system_prompt(analysis) + "\n\n" + sys_extra + "\n" + _profile_rules(analysis)
+    return system, user
+
+
+def run_generate_subtopic_dive(lecture_id: int, topic_slug: str, subslug: str) -> tuple[bool, str]:
+    if not openai_service.is_openai_configured():
+        return False, "OpenAI is not configured. Set OPENAI_API_KEY in your .env file."
+
+    lec = lecture_service.get_lecture_by_id(lecture_id)
+    if not lec:
+        return False, "Lecture not found."
+
+    prep = prepare_generation_inputs(lecture_id)
+    if not prep.ok or not prep.payload:
+        return False, prep.reason
+
+    lecture_root = lecture_root_from_source_relative(lec["source_file_path"])
+    topic_map_md, topics, err = load_topic_map_and_topics(lecture_root)
+    if err:
+        return False, err
+    entry = topic_entry_by_slug(topics, topic_slug)
+    if not entry:
+        return False, "Unknown topic slug."
+
+    parent_md = read_deep_dive_markdown(lecture_root, topic_slug)
+    if not (parent_md or "").strip():
+        return False, "Generate the topic deep dive first."
+
+    headings = parse_deep_dive_section_headings(parent_md)
+    stitle = subtopic_title_for_slug(headings, subslug)
+    if not stitle:
+        return False, "Unknown subtopic for this deep dive."
+
+    topic_title = entry["title"]
+    section_body = extract_h2_section_content(parent_md, stitle)
+    if not section_body.strip():
+        section_body = parent_md[:8000]
+
+    full_text = prep.payload["extracted_text"]
+    lecture_core, exercise_raw, _ = split_combined_extracted_text(full_text)
+    if not (lecture_core or "").strip():
+        lecture_core = full_text
+    analysis = analyze_extracted_text(
+        full_text,
+        generation_mode=GENERATION_MODE,
+        lecture_core_text=lecture_core,
+        exercise_text=exercise_raw,
+    )
+    lc, ex = _truncate_layered_lecture_exercise(lecture_core, exercise_raw)
+    material_block = _layered_material_block(
+        prep.payload["course_name"],
+        prep.payload["lecture_title"],
+        lc,
+        ex,
+        language_is_de=analysis.detected_language == "de",
+        is_organizational=analysis.is_organizational,
+    )
+    material_block = _truncate_for_prompt(material_block, 88_000)
+
+    sys_p, user_p = _prompt_subtopic_dive(
+        analysis=analysis,
+        course_name=prep.payload["course_name"],
+        lecture_title=prep.payload["lecture_title"],
+        topic_title=topic_title,
+        subtopic_title=stitle,
+        parent_section_excerpt=section_body,
+        topic_deep_dive_excerpt=parent_md,
+        material_block=material_block,
+    )
+
+    ok, md_out, err_msg = openai_service.chat_completion_markdown(
+        system_prompt=sys_p,
+        user_prompt=user_p,
+        max_tokens=8192,
+    )
+    if not ok:
+        return False, err_msg or "Generation failed."
+
+    md_out = cleanup_generated_markdown(md_out)
+    if not md_out.strip():
+        return False, "Model returned empty text."
+
+    deep_dives_root(lecture_root).mkdir(parents=True, exist_ok=True)
+    subtopic_dive_path(lecture_root, topic_slug, subslug).write_text(
+        md_out.strip() + "\n", encoding="utf-8"
+    )
+    return True, f"Subtopic deep dive saved for “{stitle}”."

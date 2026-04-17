@@ -40,6 +40,39 @@
 .topic-deep-dive-body.md-output h2:first-child {
   margin-top: 0;
 }
+.tdd-panel {
+  background: var(--color-surface-subtle, #f8f9fb);
+  border: 1px solid var(--color-border, #e4e4e4);
+  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.5rem;
+}
+.tdd-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+.tdd-panel-lede {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+}
+.tdd-q-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.tdd-q-form label { font-size: 0.85rem; color: var(--color-muted, #555); }
+.tdd-q-form select { font-size: 0.9rem; padding: 0.3rem 0.45rem; }
+.tdd-q-block {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border, #e8e8e8);
+}
+.tdd-q-block:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.tdd-q-block h3 { font-size: 0.95rem; margin: 0 0 0.5rem; text-transform: capitalize; }
+.tdd-subtopics ul { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.92rem; }
+.tdd-subtopics a { font-weight: 500; }
 </style>
 {% endblock %}
 
@@ -74,6 +107,49 @@
 
   {% if has_content %}
   <article class="topic-deep-dive-body md-output lecture-body">{{ body_html | safe }}</article>
+
+  <section class="tdd-panel" aria-labelledby="tdd-practice-h">
+    <h2 id="tdd-practice-h">Practice</h2>
+    <p class="muted small-print tdd-panel-lede">Exam-style questions from your materials — pick difficulty, then generate (each level is stored separately).</p>
+    <form class="tdd-q-form" method="post" action="/lectures/{{ lecture_id }}/topics/{{ topic_slug }}/questions/generate">
+      <label for="tdd-diff">Difficulty</label>
+      <select id="tdd-diff" name="difficulty" required>
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <button type="submit" class="button">Generate example questions</button>
+    </form>
+    {% set labels = {'easy': 'Easy', 'medium': 'Medium', 'hard': 'Hard'} %}
+    {% for d in question_difficulties %}
+      {% if questions_html[d] %}
+      <div class="tdd-q-block md-output lecture-body">
+        <h3>{{ labels[d] }}</h3>
+        {{ questions_html[d] | safe }}
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% if not (questions_html.get('easy') or questions_html.get('medium') or questions_html.get('hard')) %}
+    <p class="muted small-print" style="margin:0;">No question sets yet — choose a difficulty and generate.</p>
+    {% endif %}
+  </section>
+
+  {% if subtopics %}
+  <section class="tdd-panel tdd-subtopics" aria-labelledby="tdd-sub-h">
+    <h2 id="tdd-sub-h">Go deeper on a section</h2>
+    <p class="muted small-print tdd-panel-lede">Opens a focused page for one part of this topic (from <code>##</code> headings in the deep dive above).</p>
+    <ul>
+      {% for st in subtopics %}
+      <li>
+        <a href="/lectures/{{ lecture_id }}/topics/{{ topic_slug }}/sub/{{ st.subslug }}">{{ st.title }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% elif has_content %}
+  <p class="muted small-print">Tip: when the deep dive uses <code>##</code> section headings, links appear here for subtopic deep dives.</p>
+  {% endif %}
+
   {% else %}
   <p class="muted">No deep dive yet. Generate to create a focused study page for this topic.</p>
   {% endif %}
