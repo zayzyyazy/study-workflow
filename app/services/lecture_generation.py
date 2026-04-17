@@ -54,10 +54,14 @@ def _run_one(
 
 
 def _wants_math_rules(a: LectureAnalysis) -> bool:
+    if a.is_organizational:
+        return False
     return a.content_profile in ("math", "mixed") or a.has_formulas
 
 
 def _wants_code_rules(a: LectureAnalysis) -> bool:
+    if a.is_organizational:
+        return False
     return a.content_profile in ("code", "mixed") or a.has_code
 
 
@@ -193,6 +197,404 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
     return "\n\nAdditional requirements for this output:\n" + "\n".join(bullets_en)
 
 
+def _adaptation_summary(a: LectureAnalysis) -> str:
+    """Human-readable heuristic summary for the system prompt (both languages)."""
+    kind = a.lecture_kind
+    depth = a.depth_band
+    if a.detected_language == "de":
+        kind_labels = {
+            "organizational": "überwiegend organisatorisch/administrativ",
+            "conceptual": "konzeptuell theoretisch",
+            "mathematical": "mathematisch",
+            "proof_heavy": "beweisorientiert",
+            "coding": "programmier-/code-lastig",
+            "mixed": "gemischt (Mathe + Code/Technik)",
+            "general": "allgemein / nicht eindeutig zugeordnet",
+        }
+        depth_labels = {"light": "eher leicht/einführend", "medium": "mittlere Dichte", "dense": "dicht/forgeschritten"}
+        lines = [
+            f"Klassifikation (Heuristik): **{kind_labels.get(kind, kind)}**.",
+            f"Geschätzte Vorlesungs-Tiefe: **{depth_labels.get(depth, depth)}**.",
+        ]
+        if a.is_proof_heavy:
+            lines.append("Es gibt starke Signale für **Beweis-/Argumentationsanteile**.")
+        if a.is_organizational:
+            lines.append(
+                "Diese Einheit wirkt **logistik- oder regelzentriert** — keine künstliche Theorie/Mathe simulieren."
+            )
+        return "\n".join(lines)
+    kind_labels = {
+        "organizational": "mostly organizational / admin",
+        "conceptual": "conceptual / theory-oriented",
+        "mathematical": "mathematical",
+        "proof_heavy": "proof-heavy",
+        "coding": "programming / code-heavy",
+        "mixed": "mixed (math + code/technical)",
+        "general": "general / not strongly classified",
+    }
+    depth_labels = {"light": "lighter / introductory", "medium": "medium density", "dense": "dense / advanced"}
+    lines = [
+        f"Classification (heuristic): **{kind_labels.get(kind, kind)}**.",
+        f"Estimated lecture depth: **{depth_labels.get(depth, depth)}**.",
+    ]
+    if a.is_proof_heavy:
+        lines.append("Strong signals for **proof-style reasoning**.")
+    if a.is_organizational:
+        lines.append("This session looks **logistics- and rules-centric** — do not fabricate theory/math.")
+    return "\n".join(lines)
+
+
+def _anti_generic_rules(a: LectureAnalysis) -> str:
+    """Cross-cutting rules to reduce uniform, filler-heavy outputs."""
+    if a.detected_language == "de":
+        return (
+            "Anti-Fülltext (verbindlich):\n"
+            "- Nicht jedes Thema gleich tief behandeln — **Tiefe proportional** zur Rolle in der Vorlesung.\n"
+            "- Keine künstliche Vollständigkeit: lieber **präzise und kurz** wo die Quelle dünn ist.\n"
+            "- Keine wiederholten Glossar-Definitionen in jedem Abschnitt; **einmal klar, dann verbinden**.\n"
+            "- Keine erfundenen „Alltagsbeispiele“, nur wenn sie wirklich helfen.\n"
+            "- Keine gleichförmigen Abschnitte — **variiere Struktur und Länge** nach inhaltlicher Bedeutung.\n"
+            "- Offensichtliches nicht überdehnen; **Kernideen** dort klar machen, wo die Vorlesung Gewicht legt."
+        )
+    return (
+        "Anti-generic behavior (mandatory):\n"
+        "- Do **not** explain every topic at the same depth — scale depth to **importance in the lecture**.\n"
+        "- Avoid fake completeness: prefer **short and precise** when the source is thin.\n"
+        "- Do not repeat glossary-style definitions in every section; **define once, then reuse**.\n"
+        "- Do not invent shallow “real-life” examples unless they genuinely clarify.\n"
+        "- Avoid uniform sections — **vary structure and length** by conceptual weight.\n"
+        "- Do not over-expand trivial points; spend words on what the lecture **actually emphasizes**."
+    )
+
+
+def _example_policy_line(a: LectureAnalysis) -> str:
+    """One line on how strongly to use examples (appended where relevant)."""
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        if k == "organizational":
+            return "\nBeispiele: **kaum bis keine**; keine erfundenen Szenarien — nur wenn die Quelle welche hat."
+        if k == "conceptual":
+            return "\nBeispiele: **sparsam, aber sinnvoll** — nur zur Klärung von Begriffen/Beziehungen."
+        if k == "mathematical":
+            return "\nBeispiele: **wichtig** — bevorzugt **rechnerisch/symbolisch** oder kleine Mini-Instanzen aus der Vorlesung."
+        if k == "proof_heavy":
+            return "\nBeispiele: **Argumentations-/Anwendungsbeispiele** (z. B. wie ein Satz greift), nicht nur Wiederholung der Formulierung."
+        if k == "coding":
+            return "\nBeispiele: **Code-getrieben** — kurze Snippets, Ein-/Ausgabe, typische Fehler."
+        if k == "mixed":
+            return "\nBeispiele: **ausgewogen** — Mathe und Code getrennt halten, keinen Modus „gewinnen“ lassen."
+        return "\nBeispiele: **nur wenn** sie die Vorlesung wirklich verständlicher machen."
+    if k == "organizational":
+        return "\nExamples: **few or none**; no invented scenarios — only if the source already has them."
+    if k == "conceptual":
+        return "\nExamples: **sparing but meaningful** — clarify concepts/relationships, not filler."
+    if k == "mathematical":
+        return "\nExamples: **important** — prefer worked symbolic / small instances grounded in the lecture."
+    if k == "proof_heavy":
+        return "\nExamples: **reasoning / application** (how a theorem is used), not just restating the statement."
+    if k == "coding":
+        return "\nExamples: **code-driven** — short snippets, behavior, pitfalls."
+    if k == "mixed":
+        return "\nExamples: **balanced** — keep math and code separate; do not let one mode dominate."
+    return "\nExamples: **only when** they genuinely improve understanding of the lecture."
+
+
+def _topic_map_depth_calibration(a: LectureAnalysis) -> str:
+    """Makes Topic Map scores more meaningful (spread vs compressed)."""
+    d = a.depth_band
+    if a.detected_language == "de":
+        if d == "light":
+            return (
+                "\nTiefenscores nutzen: **volle Spanne 1–10** nutzen; bei kurzer/leichter Vorlesung oft **1–3** für Randthemen, "
+                "**4–7** für Mittelfeld — keine künstliche Inflation."
+            )
+        if d == "dense":
+            return (
+                "\nTiefenscores nutzen: **volle Spanne 1–10**; bei dichter Vorlesung sind **8–10** für wirklich zentrale "
+                "Trägerideen üblich, **1–3** für echte Randnotizen."
+            )
+        return (
+            "\nTiefenscores nutzen: **volle Spanne 1–10**; verteile **nicht** alles um 5–6 — "
+            "orientiere dich an **Wiederholung, Formalisierung, spätere Abhängigkeiten**."
+        )
+    if d == "light":
+        return (
+            "\nDepth scores: use the **full 1–10 range**; for lighter/shorter lectures, side topics are often **1–3**, "
+            "core ideas **4–7** — do not inflate."
+        )
+    if d == "dense":
+        return (
+            "\nDepth scores: use the **full 1–10 range**; dense lectures often warrant **8–10** for true backbone ideas "
+            "and **1–3** for real asides."
+        )
+    return (
+        "\nDepth scores: use the **full 1–10 range**; avoid clustering everything around **5–6** — "
+        "use **repetition, formalization, and downstream dependencies**."
+    )
+
+
+def _topic_map_kind_focus(a: LectureAnalysis) -> str:
+    """What the Topic Map should emphasize for this lecture kind."""
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        if k == "organizational":
+            return (
+                "\nSchwerpunkt Topic Map: **Entscheidungen, Regeln, Abläufe, Termine, Erwartungen** — "
+                "nicht vorgeben, es gäbe tiefe Fachkonzepte, wenn die Quelle nur organisatorisch ist."
+            )
+        if k == "conceptual":
+            return (
+                "\nSchwerpunkt Topic Map: **Begriffsnetz, Unterscheidungen, Ideenhierarchie** — "
+                "Formeln nur wenn die Quelle sie wirklich zentral setzt."
+            )
+        if k == "mathematical":
+            return (
+                "\nSchwerpunkt Topic Map: **Notation, Definitionen, Objektbeziehungen** — "
+                "Symbole und Formeln **exakt** wie in der Quelle."
+            )
+        if k == "proof_heavy":
+            return (
+                "\nSchwerpunkt Topic Map: **Sätze/Behauptungen, Annahmen, Beweisideen** — "
+                "Verbindungen zwischen „was gesagt wird“ und „wie argumentiert wird“."
+            )
+        if k == "coding":
+            return (
+                "\nSchwerpunkt Topic Map: **APIs, Konzepte, Datenfluss, zentrale Code-Ideen** — "
+                "Identifier wie in der Quelle."
+            )
+        if k == "mixed":
+            return (
+                "\nSchwerpunkt Topic Map: **beide Welten** (Mathe + Code) mit **gleichen Kartenregeln**, "
+                "aber klar getrennten Themen."
+            )
+        return ""
+    if k == "organizational":
+        return (
+            "\nTopic Map focus: **decisions, rules, logistics, deadlines, expectations** — "
+            "do not pretend there are deep technical concepts if the source is administrative."
+        )
+    if k == "conceptual":
+        return (
+            "\nTopic Map focus: **concept web, distinctions, idea hierarchy** — "
+            "formulas only when the lecture truly centers them."
+        )
+    if k == "mathematical":
+        return (
+            "\nTopic Map focus: **notation, definitions, relationships** — "
+            "symbols and formulas **exactly** as in the source."
+        )
+    if k == "proof_heavy":
+        return (
+            "\nTopic Map focus: **claims, assumptions, proof ideas** — "
+            "links between what is stated and how it is argued."
+        )
+    if k == "coding":
+        return (
+            "\nTopic Map focus: **APIs, concepts, data flow, core code ideas** — "
+            "identifiers as in the source."
+        )
+    if k == "mixed":
+        return (
+            "\nTopic Map focus: **both** math and code with the **same map discipline**, "
+            "but clearly separated topics."
+        )
+    return ""
+
+
+def _core_learning_map_depth_calibration(a: LectureAnalysis) -> str:
+    """Extra calibration when Topic Map text is injected (depends on depth_band + kind)."""
+    d = a.depth_band
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        base = (
+            "\nTiefe zusätzlich gewichten nach Vorlesungslage: **Randthemen kurz** (1–3), "
+            "**Kernstücke** (7–10) mit **mehr Raum** — wiederholte Begriffe, formale Definitionen und "
+            "spätere Abhängigkeiten erhöhen die Tiefe."
+        )
+        if d == "dense":
+            base += (
+                "\nDichte Vorlesung: **8–10** nur für wirklich tragende Konzepte; vermeide gleich lange Abschnitte."
+            )
+        if d == "light":
+            base += (
+                "\nLeichte Vorlesung: **nicht aufblasen** — niedrige Scores knapp halten, keine künstliche Tiefe."
+            )
+        if k == "proof_heavy":
+            base += (
+                "\nBeweislast: bei hohen Scores **Beweisidee, Annahmen, Schlüsselschritte** erklären — "
+                "nicht nur Satz formulieren."
+            )
+        if k == "organizational":
+            base += (
+                "\nOrganisatorisch: **kurze, praktische** Abschnitte — keine Theorie-/Mathe-Mimikry."
+            )
+        if k == "conceptual":
+            base += (
+                "\nKonzeptuell: **Intuition und Unterscheidungen** vor Formalismus, außer die Quelle ist formal."
+            )
+        return base
+    base = (
+        "\nFurther depth weighting: **side topics brief** (1–3), **core topics** (7–10) get **more space** — "
+        "repetition, formal definitions, and downstream use increase depth."
+    )
+    if d == "dense":
+        base += "\nDense lecture: reserve **8–10** for true backbone ideas; avoid equal-length sections."
+    if d == "light":
+        base += "\nLight lecture: **do not inflate** low scores — keep side topics short."
+    if k == "proof_heavy":
+        base += (
+            "\nProof-heavy: for high scores explain **proof idea, assumptions, key steps** — "
+            "not restating the theorem only."
+        )
+    if k == "organizational":
+        base += "\nOrganizational: **short practical** sections — no fake theory/math voice."
+    if k == "conceptual":
+        base += "\nConceptual: prioritize **intuition and distinctions** over formalism unless the source is formal."
+    return base
+
+
+def _quick_overview_kind_addon(a: LectureAnalysis) -> str:
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        if k == "organizational":
+            return (
+                "\n\nSchwerpunkt dieser Quick Overview: **Session-Zweck, Logistik, Termine, Erwartungen, nächste Schritte** — "
+                "nicht eine künstliche „zentrale mathematische Idee“ erfinden."
+            )
+        if k == "proof_heavy":
+            return (
+                "\n\nErwähne: **welche Hauptresultate/Behauptungen** und **welche Beweisstile** die Vorlesung prägt (kurz)."
+            )
+        if k == "coding":
+            return (
+                "\n\nErwähne: **welche Programmierziele** und **welche Artefakte** (Code, APIs) zentral sind."
+            )
+        return ""
+    if k == "organizational":
+        return (
+            "\n\nEmphasize **session purpose, logistics, deadlines, expectations, next steps** — "
+            "do not invent a fake central mathematical idea."
+        )
+    if k == "proof_heavy":
+        return (
+            "\n\nBriefly surface **main results/claims** and **what proof style** dominates (short)."
+        )
+    if k == "coding":
+        return (
+            "\n\nBriefly surface **programming goals** and **central artifacts** (code/APIs)."
+        )
+    return ""
+
+
+def _core_learning_structure_addon(a: LectureAnalysis) -> str:
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        if k == "organizational":
+            return (
+                "\n\nSchwerpunkt Core Learning: **praktisch, knapp** — Abläufe, Regeln, was zu tun ist; "
+                "keine Theorie-/Mathe-Show."
+            )
+        if k == "mathematical":
+            return (
+                "\n\nSchwerpunkt Core Learning: **Notation exakt**, Definitionen, Symbolbedeutung, "
+                "Rechenbeispiele wenn die Vorlesung sie führt; typische Verwechslungen."
+            )
+        if k == "conceptual":
+            return (
+                "\n\nSchwerpunkt Core Learning: **Intuition, Begriffsnetz, Zusammenhänge** — "
+                "Formeln nur wenn die Quelle sie wirklich braucht."
+            )
+        if k == "proof_heavy":
+            return (
+                "\n\nSchwerpunkt Core Learning: **Satz/Behauptung verstehen**, Annahmen, **Beweisidee**, "
+                "warum Schritte nötig sind — nicht nur Satz wiederholen."
+            )
+        if k == "coding":
+            return (
+                "\n\nSchwerpunkt Core Learning: **Code lesen, Bedeutung, Verhalten**, typische Fehler; "
+                "Code in fenced Blocks."
+            )
+        if k == "mixed":
+            return (
+                "\n\nSchwerpunkt Core Learning: **Balance** — Mathe und Code getrennt halten, "
+                "Anteil der Erklärung an den tatsächlichen Quellenanteilen ausrichten."
+            )
+        return ""
+    if k == "organizational":
+        return (
+            "\n\nCore Learning focus: **practical and short** — flows, rules, what to do; "
+            "no fake theory/math performance."
+        )
+    if k == "mathematical":
+        return (
+            "\n\nCore Learning focus: **exact notation**, definitions, symbol meaning, "
+            "worked steps when the lecture does; typical confusions."
+        )
+    if k == "conceptual":
+        return (
+            "\n\nCore Learning focus: **intuition, concept web, relationships** — "
+            "formulas only when the source truly needs them."
+        )
+    if k == "proof_heavy":
+        return (
+            "\n\nCore Learning focus: **claims, assumptions, proof idea**, why steps matter — "
+            "not restating theorems only."
+        )
+    if k == "coding":
+        return (
+            "\n\nCore Learning focus: **code meaning, behavior, pitfalls**; fenced code blocks."
+        )
+    if k == "mixed":
+        return (
+            "\n\nCore Learning focus: **balance** — keep math and code separate; "
+            "match explanation volume to actual source emphasis."
+        )
+    return ""
+
+
+def _revision_kind_addon(a: LectureAnalysis) -> str:
+    k = a.lecture_kind
+    if a.detected_language == "de":
+        if k == "organizational":
+            return (
+                "\n\nSchwerpunkt Revision Sheet: **Merken & Tun** — Fristen, Regeln, Anforderungen, "
+                "Checklisten; keine künstlichen Formeln."
+            )
+        if k == "mathematical":
+            return (
+                "\n\nSchwerpunkt Revision Sheet: **Symbole, Definitionen, Regeln** kompakt; "
+                "was man auswendig können muss vs. verstehen."
+            )
+        if k == "proof_heavy":
+            return (
+                "\n\nSchwerpunkt Revision Sheet: **Satzschablonen**, zentrale Annahmen, "
+                "Beweis-/Lösungsmuster die in Prüfungen vorkommen."
+            )
+        if k == "coding":
+            return (
+                "\n\nSchwerpunkt Revision Sheet: **APIs/Syntax**, häufige Fehler, Mini-Snippets nur wenn relevant."
+            )
+        return ""
+    if k == "organizational":
+        return (
+            "\n\nRevision Sheet focus: **remember & do** — deadlines, rules, requirements, checklists; "
+            "no fake formulas."
+        )
+    if k == "mathematical":
+        return (
+            "\n\nRevision Sheet focus: **symbols, definitions, rules** compactly; memorize vs understand."
+        )
+    if k == "proof_heavy":
+        return (
+            "\n\nRevision Sheet focus: **theorem templates**, key assumptions, proof patterns exam-relevant."
+        )
+    if k == "coding":
+        return (
+            "\n\nRevision Sheet focus: **APIs/syntax**, common pitfalls, tiny snippets only if relevant."
+        )
+    return ""
+
+
 def _system_prompt(a: LectureAnalysis) -> str:
     if a.detected_language == "de":
         base = (
@@ -204,9 +606,12 @@ def _system_prompt(a: LectureAnalysis) -> str:
         )
         analysis = (
             f"Voranalyse: Ausgaben durchgehend auf **Deutsch**. "
-            f"Inhaltstyp: {a.content_profile}. "
+            f"Inhaltstyp (Formel/Code-Signale): {a.content_profile}. "
+            f"Lektionsart (Heuristik): **{a.lecture_kind}**. "
+            f"Geschätzte Tiefe: **{a.depth_band}**. "
             f"Quelle enthält erkennbare Formeln: {'ja' if a.has_formulas else 'nein'}. "
-            f"Quelle enthält erkennbaren Code: {'ja' if a.has_code else 'nein'}."
+            f"Quelle enthält erkennbaren Code: {'ja' if a.has_code else 'nein'}.\n\n"
+            f"{_adaptation_summary(a)}"
         )
     else:
         base = (
@@ -218,11 +623,22 @@ def _system_prompt(a: LectureAnalysis) -> str:
         )
         analysis = (
             f"Lecture analysis: write **all** outputs in **English**. "
-            f"Content profile: {a.content_profile}. "
+            f"Content profile (formula/code signals): {a.content_profile}. "
+            f"Lecture kind (heuristic): **{a.lecture_kind}**. "
+            f"Estimated depth band: **{a.depth_band}**. "
             f"Source appears to contain formulas: {'yes' if a.has_formulas else 'no'}. "
-            f"Source appears to contain code: {'yes' if a.has_code else 'no'}."
+            f"Source appears to contain code: {'yes' if a.has_code else 'no'}.\n\n"
+            f"{_adaptation_summary(a)}"
         )
-    return base + "\n\n" + analysis + "\n\n" + _profile_rules(a)
+    return (
+        base
+        + "\n\n"
+        + analysis
+        + "\n\n"
+        + _anti_generic_rules(a)
+        + "\n\n"
+        + _profile_rules(a)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +664,7 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             "- Bezug auf den tatsächlichen Vorlesungsinhalt; nichts Erfundenes.\n\n"
             "Oberste Überschrift exakt: ## Quick Overview"
         )
+        extra += _quick_overview_kind_addon(a) + _example_policy_line(a)
     else:
         extra = (
             "Produce **Quick Overview** — the short orientation read before everything else.\n\n"
@@ -264,6 +681,7 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             "- Ground every statement in the actual lecture, not generic claims.\n\n"
             "Top heading must be exactly: ## Quick Overview"
         )
+        extra += _quick_overview_kind_addon(a) + _example_policy_line(a)
     return sys, extra
 
 
@@ -317,6 +735,9 @@ def _prompt_topic_map(
             "Oberste Überschrift exakt: ## Topic Map"
             + course_ctx
             + _artifact_technical_addon(a, "topic_map")
+            + _topic_map_depth_calibration(a)
+            + _topic_map_kind_focus(a)
+            + _example_policy_line(a)
         )
     else:
         extra = (
@@ -347,6 +768,9 @@ def _prompt_topic_map(
             "Top heading must be exactly: ## Topic Map"
             + course_ctx
             + _artifact_technical_addon(a, "topic_map")
+            + _topic_map_depth_calibration(a)
+            + _topic_map_kind_focus(a)
+            + _example_policy_line(a)
         )
     return sys, extra
 
@@ -391,6 +815,8 @@ def _prompt_core_learning(
                 "formalization what is central, and calibrate depth accordingly.\n"
             )
 
+    map_block += _core_learning_map_depth_calibration(a)
+
     if a.detected_language == "de":
         extra = (
             "Erstelle **Core Learning** als Haupt-Lernteil.\n"
@@ -412,6 +838,8 @@ def _prompt_core_learning(
             "- Revision-Sheet-Inhalte (reine Stichpunkte, Merklisten) gehören nicht hierher — die kommen später."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
+            + _core_learning_structure_addon(a)
+            + _example_policy_line(a)
         )
     else:
         extra = (
@@ -434,6 +862,8 @@ def _prompt_core_learning(
             "- Pure bullet-point memorization lists belong in the Revision Sheet, not here."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
+            + _core_learning_structure_addon(a)
+            + _example_policy_line(a)
         )
     return sys, extra
 
@@ -453,6 +883,8 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             "- Bullet-Listen oder kompakte Tabellen bevorzugen.\n\n"
             "Oberste Überschrift exakt: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
+            + _revision_kind_addon(a)
+            + _example_policy_line(a)
         )
     else:
         extra = (
@@ -467,6 +899,8 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             "- Prefer bullet lists or compact tables.\n\n"
             "Top heading must be exactly: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
+            + _revision_kind_addon(a)
+            + _example_policy_line(a)
         )
     return sys, extra
 

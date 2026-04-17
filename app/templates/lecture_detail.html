@@ -187,6 +187,8 @@
     {% if lecture_analysis.detected_language == 'de' %}German{% else %}English{% endif %}
     · content profile
     {% if lecture_analysis.content_profile == 'general' %}general{% elif lecture_analysis.content_profile == 'math' %}math{% elif lecture_analysis.content_profile == 'code' %}code{% elif lecture_analysis.content_profile == 'mixed' %}mixed{% else %}{{ lecture_analysis.content_profile }}{% endif %}
+    {% if lecture_analysis.lecture_kind %}· kind {{ lecture_analysis.lecture_kind }}{% endif %}
+    {% if lecture_analysis.depth_band %}· depth {{ lecture_analysis.depth_band }}{% endif %}
   </p>
   {% endif %}
 </header>
