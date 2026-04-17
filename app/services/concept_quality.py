@@ -76,6 +76,30 @@ _STOP: Final = frozenset(
         "themen",
         "inhalt",
         "überblick",
+        "checkliste",
+        "checklist",
+        "core learning",
+        "quick overview",
+        "topic map",
+        "revision sheet",
+        "study pack",
+        "merkblatt",
+        "klausurvorbereitung",
+    }
+)
+
+# Multi-word / UI boilerplate from generated study materials (substring match, lowercased key)
+_BOILERPLATE_SUBSTRINGS: Final = frozenset(
+    {
+        "core learning",
+        "quick overview",
+        "topic map",
+        "revision sheet",
+        "study pack",
+        "inhalt der einheit",
+        "inhalt dieser einheit",
+        "checkliste",
+        "check list",
     }
 )
 
@@ -180,6 +204,9 @@ def is_noise_concept(text: str, *, mode: str = "strict") -> bool:
         return True
     if key in {"main", "details", "setup", "context", "today", "next", "previous"}:
         return True
+    for phrase in _BOILERPLATE_SUBSTRINGS:
+        if phrase in key:
+            return True
     parts = key.split()
     if len(parts) == 1 and parts[0] in _STOP:
         return True

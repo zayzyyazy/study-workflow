@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+GenerationMode = Literal["legacy", "strict_v2"]
+
 LanguageCode = Literal["de", "en"]
 ContentProfile = Literal["general", "math", "code", "mixed"]
 LectureKind = Literal[
@@ -339,6 +341,77 @@ def _pick_profile(math_s: float, code_s: float) -> tuple[ContentProfile, bool, b
     return "general", bool(math_s >= 0.5), bool(code_s >= 0.5)
 
 
+def _veto_false_organizational(
+    *,
+    org_hits: float,
+    def_hits: float,
+    proof_hits: float,
+    heading_lines: int,
+    n_chars: int,
+    math_s: float,
+    code_s: float,
+    mode: GenerationMode,
+) -> bool:
+    """
+    True => do NOT classify as organizational: content-lecture structure outweighs scattered admin/exam keywords.
+
+    Fixes false positives where words like Prüfung/Klausur/ECTS appear occasionally in real content lectures
+    (e.g. media/design) but the unit is clearly structured teaching, not admin-only.
+    """
+    # Technical/math courses use different signals — veto less aggressively when math/code dominates
+    technical = math_s >= 5.5 or code_s >= 5.5
+
+    # Definition/concept language dominates scattered logistics keywords (content lecture with exam dates in footer)
+    if not technical and n_chars >= 4500:
+        if def_hits >= 20.0 and def_hits >= org_hits * 1.55:
+            if mode == "strict_v2":
+                return True
+            if def_hits >= org_hits * 2.2 and n_chars >= 9000:
+                return True
+
+    structure_score = 0
+    if heading_lines >= 12:
+        structure_score += 4
+    elif heading_lines >= 8:
+        structure_score += 3
+    elif heading_lines >= 5:
+        structure_score += 1
+    if n_chars >= 14_000:
+        structure_score += 3
+    elif n_chars >= 8000:
+        structure_score += 2
+    elif n_chars >= 5000:
+        structure_score += 1
+    if def_hits >= 12.0:
+        structure_score += 3
+    elif def_hits >= 7.0:
+        structure_score += 2
+    elif def_hits >= 4.0:
+        structure_score += 1
+
+    org_domination = org_hits / max(def_hits + proof_hits + 3.0, 3.0)
+
+    if mode == "strict_v2":
+        if technical and heading_lines < 6 and n_chars < 4000:
+            return False
+        if structure_score >= 5 and org_hits < 22 and org_domination < 2.8:
+            return True
+        if heading_lines >= 9 and n_chars >= 6000 and org_hits < 24:
+            return True
+        if heading_lines >= 7 and n_chars >= 10_000 and def_hits >= 5.0 and org_hits < 26:
+            return True
+        return False
+
+    # legacy: conservative — only veto clear false positives
+    if technical:
+        return False
+    if structure_score >= 7 and org_hits < 20 and org_domination < 2.2:
+        return True
+    if heading_lines >= 14 and n_chars >= 9000 and org_hits < 22:
+        return True
+    return False
+
+
 def _depth_band(sample: str, math_s: float, heading_lines: int) -> DepthBand:
     n = max(len(sample), 1)
     math_per_1k = math_s / (n / 1000.0)
@@ -362,6 +435,7 @@ def _classify_lecture_kind(
     ex_hits: float,
     heading_lines: int,
     n_chars: int,
+    generation_mode: GenerationMode = "legacy",
 ) -> tuple[LectureKind, bool, bool]:
     """
     Return (lecture_kind, is_organizational, is_proof_heavy).
@@ -377,7 +451,17 @@ def _classify_lecture_kind(
     org_dom = org_hits >= 8.0 and org_hits >= proof_hits + 5.0 and math_s < 6.0 and code_s < 6.0
     org_short = n_chars < 6000 and org_hits >= 6.0 and math_s < 3.0 and code_s < 3.0
     if org_strong or org_dom or org_short:
-        return "organizational", True, False
+        if not _veto_false_organizational(
+            org_hits=org_hits,
+            def_hits=def_hits,
+            proof_hits=proof_hits,
+            heading_lines=heading_lines,
+            n_chars=n_chars,
+            math_s=math_s,
+            code_s=code_s,
+            mode=generation_mode,
+        ):
+            return "organizational", True, False
 
     # Proof-heavy: explicit proof language + some mathematical content
     proof_strong = proof_hits >= 8.0 and med_math
@@ -483,9 +567,13 @@ def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bo
     return has_exercise_material, dens, pse
 
 
-def analyze_extracted_text(text: str) -> LectureAnalysis:
+def analyze_extracted_text(text: str, *, generation_mode: GenerationMode = "legacy") -> LectureAnalysis:
     """
     Analyze truncated or full extracted lecture text.
+
+    generation_mode:
+      - legacy: conservative organizational vs content classification (default).
+      - strict_v2: stronger veto against false organizational labels on content-heavy lectures.
     """
     sample = text if len(text) <= 120_000 else text[:120_000]
     lang = _detect_language(sample)
@@ -509,6 +597,7 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
         ex_hits=ex_hits,
         heading_lines=heading_lines,
         n_chars=len(sample),
+        generation_mode=generation_mode,
     )
     depth = _depth_band(sample, ms, heading_lines)
     has_ex, pract_dens, pse = _practical_exercise_signals(sample)
@@ -520,7 +609,7 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
         f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} proof={proof_hits:.1f} "
         f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
         f"exercise_material={has_ex} practical={pract_dens} pse={pse} "
-        f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden}"
+        f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden} gen_mode={generation_mode}"
     )
     return LectureAnalysis(
         detected_language=lang,

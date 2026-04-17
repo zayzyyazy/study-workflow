@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from app.config import GENERATION_MODE
 from app.services import artifact_service, lecture_service, openai_service
 from app.services.generation_readiness import prepare_generation_inputs
 from app.services import lecture_meta
@@ -980,6 +982,122 @@ def _system_prompt(a: LectureAnalysis) -> str:
 
 
 # ---------------------------------------------------------------------------
+# strict_v2: structure-anchored prompts (opt-in via GENERATION_MODE)
+# ---------------------------------------------------------------------------
+
+
+def _extract_heading_outline(lecture_text: str, *, max_lines: int = 72, max_chars: int = 12000) -> str:
+    """Deterministic ##/### outline from source text for V2 anchoring."""
+    out: list[str] = []
+    acc = 0
+    for line in lecture_text.splitlines():
+        if re.match(r"^\s{0,3}#{1,3}\s+\S", line):
+            s = line.strip()
+            if len(s) > 400:
+                s = s[:397] + "..."
+            out.append(s)
+            acc += len(s) + 1
+            if acc >= max_chars or len(out) >= max_lines:
+                break
+    return "\n".join(out)
+
+
+def _topic_map_strict_v2_block(a: LectureAnalysis, heading_block: str) -> str:
+    if GENERATION_MODE != "strict_v2":
+        return ""
+    hb = heading_block.strip()
+    if a.detected_language == "de":
+        body = (
+            "\n\n**strict_v2 — Topic Map (zusätzlich verbindlich):**\n"
+            "- **Primäre Anker** sind die **tatsächlichen Überschriften** der Vorlesung (siehe unten, falls vorhanden). "
+            "Themennamen dort aufsetzen, wo die Quelle strukturiert — **keine** erfundenen Marketing-Kapitel.\n"
+            "- **Lieber 3–8 scharfe Themen** als viele breite Schirmbegriffe. Feine Gliederung in der Quelle → **präzise** "
+            "Untereinheiten benennen.\n"
+            "- Übungsmaterial **ergänzt** Relevanz, **ersetzt** aber nicht die vorlesungsinterne Begriffslogik.\n"
+        )
+        if hb:
+            body += "\n**Extrahierte Überschriften (nur Struktur):**\n\n```text\n" + hb + "\n```\n"
+        else:
+            body += (
+                "\n*Hinweis:* Keine `#`-Überschriften gefunden — Themen trotzdem **aus Absätzen und Betonungen** der Quelle "
+                "ableiten, nicht aus Allgemeinwissen.\n"
+            )
+        return body
+    body_en = (
+        "\n\n**strict_v2 — Topic Map (additionally mandatory):**\n"
+        "- **Primary anchors** are **actual lecture headings** (below when present). Grow topic names from real structure — "
+        "**no** invented brochure chapters.\n"
+        "- Prefer **3–8 sharp topics** over many umbrella labels. Fine-grained outline → **precise** sub-units.\n"
+        "- Exercise material **adds** relevance; it does **not** replace lecture-internal concept logic.\n"
+    )
+    if hb:
+        body_en += "\n**Extracted headings (structure only):**\n\n```text\n" + hb + "\n```\n"
+    else:
+        body_en += (
+            "\n*Note:* No `#` headings found — still derive topics from **paragraph emphasis** in the source, not from "
+            "general knowledge.\n"
+        )
+    return body_en
+
+
+def _core_learning_strict_v2_block(a: LectureAnalysis, heading_block: str) -> str:
+    if GENERATION_MODE != "strict_v2":
+        return ""
+    hb = heading_block.strip()
+    if a.detected_language == "de":
+        core = (
+            "\n\n**strict_v2 — Core Learning (zusätzlich verbindlich):**\n"
+            "- **Vorlesungsweg:** In der **Reihenfolge** der Quelle erklären (wie die Einheit aufbaut), **nicht** als "
+            "Feldüberblick oder alphabetische Themenliste.\n"
+            "- **`###`-Abschnitte** an die **großen Blöcke** der Quelle anbinden — je Abschnitt: Zentrales, Voraussetzungen, "
+            "Übergang zum Nächsten (in eigenen Worten, ohne Meta-Überschriften wie „Abhängigkeiten“).\n"
+            "- **Keine** glatten Recap-Paragraphen ohne vorlesungsspezifische Kanten.\n"
+            "- **Übungen:** Lösungsdenken an **dieselben** Begriffe koppeln wie die Vorlesung.\n"
+        )
+        if hb:
+            core += "\n**Gliederungsanker (Überschriften aus der Quelle):**\n\n```text\n" + hb + "\n```\n"
+        else:
+            core += (
+                "\n*Ohne erkannte `#`-Überschriften:* Reihenfolge aus dem **Textfluss** und **Wiederholungen** rekonstruieren.\n"
+            )
+        return core
+    core_en = (
+        "\n\n**strict_v2 — Core Learning (additionally mandatory):**\n"
+        "- **Lecture path:** Explain in **source order** (how the unit builds), **not** as a field survey or sorted topic list.\n"
+        "- **`###` sections** should track **major source blocks** — each: central idea, prerequisites, transition to next "
+        "(in your own words; no meta scaffold headings).\n"
+        "- **No** polished recap paragraphs without lecture-specific edges.\n"
+        "- **Exercises:** tie reasoning to the **same** terms as the lecture.\n"
+    )
+    if hb:
+        core_en += "\n**Heading anchors from the source:**\n\n```text\n" + hb + "\n```\n"
+    else:
+        core_en += "\n*No `#` headings detected:* reconstruct order from **flow** and **repetition** in the source.\n"
+    return core_en
+
+
+def _quick_overview_strict_v2_addon(a: LectureAnalysis) -> str:
+    if GENERATION_MODE != "strict_v2":
+        return ""
+    if a.detected_language == "de":
+        return "\n\n**strict_v2:** Extrem knapp; jeder Satz **quellenfest** — kein breiter Themenüberblick.\n"
+    return "\n\n**strict_v2:** Extremely tight; every sentence **source-grounded** — no broad topic survey.\n"
+
+
+def _revision_strict_v2_addon(a: LectureAnalysis) -> str:
+    if GENERATION_MODE != "strict_v2":
+        return ""
+    if a.detected_language == "de":
+        return (
+            "\n\n**strict_v2:** Nur **prüfbare** Stichpunkte aus der Quelle — **keine** erklärenden Mini-Absätze, "
+            "**keine** generischen Merksätze.\n"
+        )
+    return (
+        "\n\n**strict_v2:** Only **exam-checkable** bullets from the source — **no** mini-explanations, **no** generic slogans.\n"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Prompt builders
 # ---------------------------------------------------------------------------
 
@@ -1005,6 +1123,7 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             _quick_overview_kind_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "quick_overview")
+            + _quick_overview_strict_v2_addon(a)
         )
     else:
         extra = (
@@ -1025,6 +1144,7 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
             _quick_overview_kind_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "quick_overview")
+            + _quick_overview_strict_v2_addon(a)
         )
     return sys, extra
 
@@ -1032,6 +1152,8 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
 def _prompt_topic_map(
     a: LectureAnalysis,
     sibling_titles: list[str] | None = None,
+    *,
+    lecture_text: str | None = None,
 ) -> tuple[str, str]:
     sys = _system_prompt(a)
 
@@ -1086,6 +1208,7 @@ def _prompt_topic_map(
             + _topic_map_granularity_hint(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "topic_map")
+            + _topic_map_strict_v2_block(a, _extract_heading_outline(lecture_text or ""))
         )
     else:
         extra = (
@@ -1123,6 +1246,7 @@ def _prompt_topic_map(
             + _topic_map_granularity_hint(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "topic_map")
+            + _topic_map_strict_v2_block(a, _extract_heading_outline(lecture_text or ""))
         )
     return sys, extra
 
@@ -1130,6 +1254,8 @@ def _prompt_topic_map(
 def _prompt_core_learning(
     a: LectureAnalysis,
     topic_map_content: str | None = None,
+    *,
+    lecture_text: str | None = None,
 ) -> tuple[str, str]:
     """Main teaching file — tutor-style, depth calibrated by topic map scores."""
     sys = _system_prompt(a)
@@ -1197,6 +1323,7 @@ def _prompt_core_learning(
             + _core_learning_structure_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "core_learning")
+            + _core_learning_strict_v2_block(a, _extract_heading_outline(lecture_text or ""))
         )
     else:
         extra = (
@@ -1226,6 +1353,7 @@ def _prompt_core_learning(
             + _core_learning_structure_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "core_learning")
+            + _core_learning_strict_v2_block(a, _extract_heading_outline(lecture_text or ""))
         )
     return sys, extra
 
@@ -1250,6 +1378,7 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             + _revision_kind_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "revision_sheet")
+            + _revision_strict_v2_addon(a)
         )
     else:
         extra = (
@@ -1269,6 +1398,7 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
             + _revision_kind_addon(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "revision_sheet")
+            + _revision_strict_v2_addon(a)
         )
     return sys, extra
 
@@ -1358,8 +1488,9 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
     course_name = prep.payload["course_name"]
     lecture_title = prep.payload["lecture_title"]
     lecture_text = _truncate_for_generation(prep.payload["extracted_text"])
-    analysis = analyze_extracted_text(lecture_text)
+    analysis = analyze_extracted_text(lecture_text, generation_mode=GENERATION_MODE)
     analysis_meta = analysis.to_meta_dict()
+    analysis_meta["generation_mode_used"] = GENERATION_MODE
 
     # Sibling lecture titles for cross-lecture context in Topic Map
     sibling_titles = _get_sibling_titles(lecture_id, int(lec["course_id"]))
@@ -1382,9 +1513,13 @@ def run_study_materials_generation(lecture_id: int) -> tuple[bool, str]:
     for artifact_type, filename, prompt_fn, max_tok in GENERATION_STEPS:
         # Build prompt — pass extra context for topic_map and core_learning
         if artifact_type == "topic_map":
-            system, user_extra = prompt_fn(analysis, sibling_titles=sibling_titles)
+            system, user_extra = prompt_fn(
+                analysis, sibling_titles=sibling_titles, lecture_text=lecture_text
+            )
         elif artifact_type == "core_learning":
-            system, user_extra = prompt_fn(analysis, topic_map_content=topic_map_md)
+            system, user_extra = prompt_fn(
+                analysis, topic_map_content=topic_map_md, lecture_text=lecture_text
+            )
         else:
             system, user_extra = prompt_fn(analysis)
 
