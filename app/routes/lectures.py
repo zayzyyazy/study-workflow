@@ -1,6 +1,7 @@
 """Lecture detail and lifecycle actions."""
 
 import io
+import json
 from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -21,6 +22,7 @@ from app.services.markdown_math import markdown_to_lecture_html
 from app.services.storage_view import lecture_storage_context
 from app.services.study_output_paths import resolve_existing_output
 from app.services.study_pack_rebuild import rebuild_study_pack_file
+from app.services import topic_deep_dive as topic_deep_dive_service
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -86,6 +88,9 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
 
     storage = lecture_storage_context(lecture)
 
+    td_ctx = topic_deep_dive_service.build_lecture_page_context(lecture_id)
+    topic_deep_dive_slugs_json = json.dumps(td_ctx.get("slug_by_title") or {})
+
     return templates.TemplateResponse(
         request,
         "lecture_detail.html",
@@ -100,6 +105,8 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
             "concepts_ui": concepts_ui,
             "lecture_analysis": lecture_analysis,
             "study_progress_states": lecture_service.STUDY_PROGRESS_STATES,
+            "topic_deep_dive": td_ctx,
+            "topic_deep_dive_slugs_json": topic_deep_dive_slugs_json,
         },
     )
 
@@ -320,6 +327,71 @@ def study_pack_printable(request: Request, lecture_id: int) -> HTMLResponse:
             "lecture": lecture,
             "lecture_id": lecture_id,
         },
+    )
+
+
+@router.get("/lectures/{lecture_id}/topics/{topic_slug}", response_class=HTMLResponse)
+def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> HTMLResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    _tm, topics, err = topic_deep_dive_service.load_topic_map_and_topics(root)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    entry = topic_deep_dive_service.topic_entry_by_slug(topics, topic_slug)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Unknown topic.")
+    md = topic_deep_dive_service.read_deep_dive_markdown(root, topic_slug)
+    notice = request.query_params.get("notice")
+    err_q = request.query_params.get("error")
+    body_html = ""
+    if md and md.strip():
+        body_html = markdown_to_lecture_html(md)
+    return templates.TemplateResponse(
+        request,
+        "topic_deep_dive.html",
+        {
+            "title": f"{entry['title']} — Deep dive",
+            "lecture": lecture,
+            "lecture_id": lecture_id,
+            "topic": entry,
+            "topic_slug": topic_slug,
+            "body_html": body_html,
+            "has_content": bool(md and md.strip()),
+            "notice": notice,
+            "error": err_q,
+        },
+    )
+
+
+@router.post("/lectures/{lecture_id}/topics/{topic_slug}/generate", response_model=None)
+def post_generate_topic_deep_dive(lecture_id: int, topic_slug: str) -> RedirectResponse:
+    lecture = lecture_service.get_lecture_by_id(lecture_id)
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    root = lecture_root_from_source_relative(lecture["source_file_path"])
+    _tm, topics, err = topic_deep_dive_service.load_topic_map_and_topics(root)
+    if err:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote(err)}",
+            status_code=303,
+        )
+    if topic_deep_dive_service.topic_entry_by_slug(topics, topic_slug) is None:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}?error={quote('Unknown topic.')}",
+            status_code=303,
+        )
+    ok, msg = topic_deep_dive_service.run_topic_deep_dive_generation(lecture_id, topic_slug)
+    if not ok:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}/topics/{topic_slug}?error={quote(msg)}",
+            status_code=303,
+        )
+    n = quote(msg)
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}/topics/{topic_slug}?notice={n}",
+        status_code=303,
     )
 
 

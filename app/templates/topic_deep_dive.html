@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+.topic-deep-dive-page {
+  max-width: 52rem;
+}
+.topic-deep-dive-back {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+.topic-deep-dive-back a {
+  text-decoration: none;
+  color: var(--color-muted, #555);
+}
+.topic-deep-dive-back a:hover {
+  text-decoration: underline;
+}
+.topic-deep-dive-title {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+.topic-deep-dive-actions {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.topic-deep-dive-body.md-output {
+  line-height: 1.55;
+}
+.topic-deep-dive-body.md-output h2 {
+  margin-top: 2rem;
+  font-size: 1.15rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+.topic-deep-dive-body.md-output h2:first-child {
+  margin-top: 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topic-deep-dive-page workspace-lecture">
+  <nav class="topic-deep-dive-back crumb crumb-path" aria-label="Breadcrumb">
+    <a href="/lectures/{{ lecture_id }}">← Back to lecture</a>
+  </nav>
+
+  {% if notice %}
+  <p class="flash flash-success">{{ notice }}</p>
+  {% endif %}
+  {% if error %}
+  <p class="flash flash-error">{{ error }}</p>
+  {% endif %}
+
+  <h1 class="topic-deep-dive-title">{{ topic.title }}</h1>
+  <p class="muted small-print">Topic deep dive · {{ lecture.title }}</p>
+
+  <div class="topic-deep-dive-actions">
+    {% if not has_content %}
+    <form method="post" action="/lectures/{{ lecture_id }}/topics/{{ topic_slug }}/generate">
+      <button type="submit" class="button">Generate deep dive</button>
+    </form>
+    <span class="muted small-print">Uses your lecture and exercise sources. Requires <code>OPENAI_API_KEY</code>.</span>
+    {% else %}
+    <form method="post" action="/lectures/{{ lecture_id }}/topics/{{ topic_slug }}/generate">
+      <button type="submit" class="button button-secondary">Regenerate</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if has_content %}
+  <article class="topic-deep-dive-body md-output lecture-body">{{ body_html | safe }}</article>
+  {% else %}
+  <p class="muted">No deep dive yet. Generate to create a focused study page for this topic.</p>
+  {% endif %}
+</div>
+{% endblock %}

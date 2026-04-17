@@ -157,10 +157,87 @@
   font-size: 0.85rem;
   padding: 0.25rem 0.4rem;
 }
+
+/* Topic deep dives panel */
+.topic-deep-dive-panel {
+  margin: 1.5rem 0 2rem;
+  padding: 1rem 1.15rem;
+  background: var(--color-surface-subtle, #f8f9fb);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e4e4e4);
+}
+.topic-deep-dive-panel-title {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+}
+.topic-deep-dive-panel-lede {
+  margin: 0 0 0.85rem;
+}
+.topic-deep-dive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.topic-deep-dive-table th,
+.topic-deep-dive-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--color-border, #eee);
+  vertical-align: middle;
+}
+.topic-deep-dive-table th {
+  color: var(--color-muted, #666);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.topic-dd-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.topic-dd-priority {
+  font-size: 0.85rem;
+  color: var(--color-muted, #666);
+}
+.topic-dd-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd);
+  margin-left: 0.35rem;
+  color: var(--color-muted, #555);
+}
+.topic-dd-badge--rec {
+  border-color: var(--color-accent, #4a90d9);
+  color: var(--color-accent, #4a90d9);
+}
+.topic-deep-dive-link {
+  font-size: 0.78rem;
+  margin-left: 0.45rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--color-border, #ccc);
+  text-decoration: none;
+  color: var(--color-accent, #4a90d9);
+  vertical-align: middle;
+}
+.topic-deep-dive-link:hover {
+  background: var(--color-accent, #4a90d9);
+  color: #fff;
+  border-color: transparent;
+}
 </style>
 {% endblock %}
 
 {% block content %}
+{% set topic_deep_dive = topic_deep_dive | default({
+  'has_topic_map': false,
+  'topics': [],
+  'error': none,
+  'slug_by_title': {}
+}) %}
+{% set topic_deep_dive_slugs_json = topic_deep_dive_slugs_json | default('{}') %}
 {% if notice %}
 <p class="flash flash-success">{{ notice }}</p>
 {% endif %}
@@ -339,6 +416,46 @@
   </nav>
   {% endif %}
 
+  {% if topic_deep_dive.has_topic_map and topic_deep_dive.topics %}
+  <section class="topic-deep-dive-panel" aria-labelledby="topic-deep-dives-heading">
+    <h3 id="topic-deep-dives-heading" class="topic-deep-dive-panel-title">Topic deep dives</h3>
+    <p class="muted small-print topic-deep-dive-panel-lede">
+      Focused study pages per roadmap topic — deeper than the overview. Priority ≥ 7 is highlighted as a good first choice.
+    </p>
+    <table class="topic-deep-dive-table">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Priority</th>
+          <th class="topic-dd-actions">Deep dive</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in topic_deep_dive.topics %}
+        <tr>
+          <td>
+            {{ t.title }}
+            {% if t.recommended %}<span class="topic-dd-badge topic-dd-badge--rec">Recommended</span>{% endif %}
+          </td>
+          <td class="topic-dd-priority">{% if t.priority is not none %}{{ t.priority }}/10{% else %}—{% endif %}</td>
+          <td class="topic-dd-actions">
+            {% if t.has_deep_dive %}
+            <a class="button button-secondary button-small" href="/lectures/{{ lecture.id }}/topics/{{ t.slug }}">Open</a>
+            {% else %}
+            <form method="post" action="/lectures/{{ lecture.id }}/topics/{{ t.slug }}/generate" style="display:inline;">
+              <button type="submit" class="button button-secondary button-small">Generate</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% elif topic_deep_dive.error %}
+  <p class="muted small-print">Topic deep dives: {{ topic_deep_dive.error }}</p>
+  {% endif %}
+
   {% for sec in generation_sections %}
   <article class="gen-section gen-section-{{ sec.artifact_type | replace('_', '-') }}" id="gen-{{ sec.artifact_type }}">
     <h3 class="gen-section-title">{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
@@ -513,6 +630,37 @@
     created += 1;
   });
   if (created > 0) { toc.hidden = false; }
+})();
+
+// "Deep dive" links on Topic Roadmap + Topic Lessons (### titles must match roadmap)
+(function () {
+  var raw = {{ topic_deep_dive_slugs_json | safe }};
+  var map = {};
+  try {
+    map = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
+  } catch (e) {
+    map = {};
+  }
+  var lid = {{ lecture.id }};
+  function addLinks(containerId) {
+    var root = document.getElementById(containerId);
+    if (!root) return;
+    var heads = root.querySelectorAll("h3");
+    heads.forEach(function (h) {
+      var txt = (h.textContent || "").trim();
+      var slug = map[txt];
+      if (!slug) return;
+      if (h.querySelector(".topic-deep-dive-link")) return;
+      var a = document.createElement("a");
+      a.className = "topic-deep-dive-link";
+      a.href = "/lectures/" + lid + "/topics/" + encodeURIComponent(slug);
+      a.textContent = "Deep dive";
+      h.appendChild(document.createTextNode(" "));
+      h.appendChild(a);
+    });
+  }
+  addLinks("gen-content-topic_map");
+  addLinks("gen-content-core_learning");
 })();
 
 // Sub-TOC for Teach Me (legacy lectures only)
