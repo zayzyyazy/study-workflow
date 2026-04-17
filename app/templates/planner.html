@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+.planner-lede { color: var(--muted); margin-bottom: 1.25rem; max-width: 40rem; }
+.planner-stats { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.5rem; }
+.planner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+.planner-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+}
+.planner-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.planner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.planner-list li {
+  margin-bottom: 0.45rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.planner-list a { font-weight: 500; }
+.planner-sub {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+.planner-empty { color: var(--muted); font-size: 0.9rem; }
+.planner-section {
+  margin-bottom: 1.75rem;
+}
+.planner-section > h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+.schedule-editor {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.5rem;
+}
+.schedule-editor h2 { margin-top: 0; font-size: 1.05rem; }
+.planner-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 0.65rem;
+}
+.planner-form-row label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.82rem;
+  color: var(--muted);
+  gap: 0.2rem;
+}
+.planner-form-row input, .planner-form-row select {
+  font-size: 0.9rem;
+  padding: 0.35rem 0.45rem;
+}
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.schedule-table th, .schedule-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.schedule-table th { color: var(--muted); font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Planner</h1>
+<p class="planner-lede">
+  Short, practical pointers from your schedule and library — no coaching, no long advice.
+  Times use <strong>this computer’s local clock</strong>.
+</p>
+
+{% if notice %}
+<p class="flash flash-success">{{ notice }}</p>
+{% endif %}
+{% if error %}
+<p class="flash flash-error">{{ error }}</p>
+{% endif %}
+
+<p class="planner-stats">{{ dash.stats_line }} · Today: <strong>{{ dash.weekday_label }}</strong> {{ dash.today_iso }} · Generated {{ dash.generated_at }}</p>
+
+<div class="planner-grid">
+  <section class="planner-card" aria-labelledby="planner-now">
+    <h2 id="planner-now">Now</h2>
+    {% if dash.now_lines %}
+    <ul class="planner-list">
+      {% for line in dash.now_lines %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+
+  <section class="planner-card" aria-labelledby="planner-today">
+    <h2 id="planner-today">Today’s schedule</h2>
+    {% if dash.today_schedule %}
+    <ul class="planner-list">
+      {% for line in dash.today_schedule %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+
+  <section class="planner-card" aria-labelledby="planner-today-study">
+    <h2 id="planner-today-study">Study today</h2>
+    {% if dash.today_study %}
+    <ul class="planner-list">
+      {% for line in dash.today_study %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="planner-section" aria-labelledby="planner-next">
+  <h2 id="planner-next">Next up</h2>
+  {% if dash.next_up %}
+  <ul class="planner-list">
+    {% for row in dash.next_up %}
+    <li>
+      {% if row.href %}<a href="{{ row.href }}">{{ row.when }}</a> — {{ row.label }}{% else %}{{ row.when }} — {{ row.label }}{% endif %}
+      <span class="planner-sub">{{ row.kind }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="planner-empty">No upcoming blocks in the next week.</p>
+  {% endif %}
+</section>
+
+<section class="planner-section" aria-labelledby="planner-catch">
+  <h2 id="planner-catch">Catch up</h2>
+  {% if dash.catch_up %}
+  <ul class="planner-list">
+    {% for line in dash.catch_up %}
+    <li>
+      <a href="{{ line.href }}">{{ line.text }}</a>
+      {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="planner-empty">Nothing in progress.</p>
+  {% endif %}
+</section>
+
+<div class="planner-grid">
+  <section class="planner-card" aria-labelledby="planner-dd">
+    <h2 id="planner-dd">Deep dives</h2>
+    {% if dash.deep_dive_lines %}
+    <ul class="planner-list">
+      {% for line in dash.deep_dive_lines %}
+      <li>
+        <a href="{{ line.href }}">{{ line.text }}</a>
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">No missing high-priority deep dives (or no topic maps).</p>
+    {% endif %}
+  </section>
+
+  <section class="planner-card" aria-labelledby="planner-dead">
+    <h2 id="planner-dead">Deadlines</h2>
+    {% if dash.deadlines %}
+    <ul class="planner-list">
+      {% for line in dash.deadlines %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="schedule-editor" aria-labelledby="schedule-edit-heading">
+  <h2 id="schedule-edit-heading">Weekly &amp; one-off blocks</h2>
+  <p class="muted small-print" style="margin-top:0;">Add recurring lectures or project blocks. Link a <strong>lecture</strong> slot to a course so “Study today” can suggest prep before class.</p>
+
+  <form method="post" action="/planner/schedule/add">
+    <div class="planner-form-row">
+      <label>Title
+        <input type="text" name="title" required placeholder="e.g. Digitale Medien" maxlength="200">
+      </label>
+      <label>Kind
+        <select name="kind" required>
+          <option value="lecture">Lecture</option>
+          <option value="project">Project</option>
+          <option value="block">Block</option>
+          <option value="deadline">Deadline</option>
+        </select>
+      </label>
+      <label>Recurrence
+        <select name="recurrence" id="planner-recurrence" required>
+          <option value="weekly">Weekly</option>
+          <option value="once">One-off</option>
+        </select>
+      </label>
+    </div>
+    <div class="planner-form-row">
+      <label>Course (optional)
+        <select name="course_id">
+          <option value="">—</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Weekday (weekly)
+        <select name="weekday">
+          <option value="">—</option>
+          {% for d in weekday_names %}
+          <option value="{{ loop.index0 }}">{{ d }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Date (one-off)
+        <input type="date" name="specific_date">
+      </label>
+      <label>Start
+        <input type="time" name="start_time" required>
+      </label>
+      <label>End
+        <input type="time" name="end_time" required>
+      </label>
+      <button type="submit" class="button">Add block</button>
+    </div>
+  </form>
+
+  {% if dash.schedule_items %}
+  <table class="schedule-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Title</th>
+        <th>Kind</th>
+        <th>Course</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in dash.schedule_items %}
+      <tr>
+        <td>
+          {% if s.recurrence == 'weekly' and s.weekday is not none %}
+          {{ weekday_names[s.weekday] }} · {{ s.start_time }}–{{ s.end_time }}
+          {% elif s.specific_date %}
+          {{ s.specific_date }} · {{ s.start_time }}–{{ s.end_time }}
+          {% else %}
+          {{ s.start_time }}–{{ s.end_time }}
+          {% endif %}
+        </td>
+        <td>{{ s.title }}</td>
+        <td>{{ s.kind }}</td>
+        <td>{{ s.course_name or '—' }}</td>
+        <td>
+          <form method="post" action="/planner/schedule/{{ s.id }}/delete" style="display:inline;">
+            <button type="submit" class="button button-secondary button-small">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted small-print">No blocks yet — add your timetable above.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -90,6 +90,37 @@ def _ensure_is_starred_column(conn: sqlite3.Connection) -> None:
         )
 
 
+def _ensure_planner_schedule_table(conn: sqlite3.Connection) -> None:
+    """Weekly / one-off schedule blocks for the study planner (MVP)."""
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='planner_schedule_items'"
+    )
+    if cur.fetchone() is not None:
+        return
+    conn.execute(
+        """
+        CREATE TABLE planner_schedule_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+            title TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            recurrence TEXT NOT NULL,
+            weekday INTEGER,
+            specific_date TEXT,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_planner_schedule_weekday ON planner_schedule_items(weekday)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_planner_schedule_date ON planner_schedule_items(specific_date)"
+    )
+
+
 def init_db() -> None:
     ensure_directories()
     db_path: Path = DATABASE_PATH
@@ -99,6 +130,7 @@ def init_db() -> None:
         _migrate_legacy_statuses(conn)
         _ensure_study_progress_column(conn)
         _ensure_is_starred_column(conn)
+        _ensure_planner_schedule_table(conn)
         conn.commit()
 
 

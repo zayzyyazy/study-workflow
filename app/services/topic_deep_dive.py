@@ -456,3 +456,40 @@ def build_lecture_page_context(lecture_id: int) -> dict[str, Any]:
         "error": None,
         "has_topic_map": True,
     }
+
+
+def list_missing_recommended_deep_dives(limit: int = 12) -> list[dict[str, Any]]:
+    """
+    High-priority roadmap topics without a generated deep dive yet (for planner hints).
+    """
+    rows = lecture_service.list_lectures_for_planner()
+    out: list[dict[str, Any]] = []
+    for lec in rows:
+        if lec.get("status") != "generation_complete":
+            continue
+        try:
+            root = lecture_root_from_source_relative(lec["source_file_path"])
+        except (OSError, ValueError):
+            continue
+        _tm, topics, err = load_topic_map_and_topics(root)
+        if err or not topics:
+            continue
+        for t in topics:
+            pr = t.get("priority")
+            if not isinstance(pr, int) or pr < RECOMMENDED_PRIORITY_MIN:
+                continue
+            if deep_dive_exists(root, t["slug"]):
+                continue
+            out.append(
+                {
+                    "lecture_id": lec["id"],
+                    "lecture_title": lec["title"],
+                    "course_name": lec["course_name"],
+                    "topic_title": t["title"],
+                    "slug": t["slug"],
+                    "priority": pr,
+                }
+            )
+            if len(out) >= limit:
+                return out
+    return out

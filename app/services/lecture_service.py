@@ -377,3 +377,18 @@ def list_starred_lectures(limit: int = 24) -> list[dict[str, Any]]:
             (limit,),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def list_lectures_for_planner() -> list[dict[str, Any]]:
+    """All lectures with course names for deterministic planner views."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.source_file_path,
+                   c.id AS course_id, c.name AS course_name, c.slug AS course_slug
+            FROM lectures l
+            JOIN courses c ON c.id = l.course_id
+            ORDER BY c.name COLLATE NOCASE, l.title COLLATE NOCASE
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
