@@ -975,6 +975,24 @@ button:disabled {
   border-left: 3px solid #cbd5e1;
   padding-left: 1rem;
 }
+
+/* Core Learning: favor readable narrative; lists slightly de-emphasized vs body text */
+.generated-materials .gen-section-core-learning .md-output {
+  line-height: 1.74;
+}
+.generated-materials .gen-section-core-learning .md-output p {
+  margin: 0.7rem 0;
+  max-width: 70ch;
+}
+.generated-materials .gen-section-core-learning .md-output ul,
+.generated-materials .gen-section-core-learning .md-output ol {
+  margin: 0.4rem 0 0.8rem 1.05rem;
+  font-size: 0.93em;
+  line-height: 1.55;
+}
+.generated-materials .gen-section-core-learning .md-output li {
+  margin: 0.2rem 0;
+}
 .teachme-subtoc {
   margin: 0.25rem 0 0.9rem 0;
   padding: 0.5rem 0.65rem;

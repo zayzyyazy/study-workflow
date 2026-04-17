@@ -154,11 +154,15 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
             )
         if step == "core_learning" and wm:
             bullets.append(
-                "- Lernen/Erklären: Formeln in `$...$` / `$$...$$`; pro Hauptthema klar mit ##/### gliedern. "
-                "Bei eingebauten Beispielen: jeden Rechenschritt mit `$...$` zeigen."
+                "- Core Learning (Mathe): Formeln in `$...$` / `$$...$$`. "
+                "Verknüpfe Formeln mit **erklärender Prosa** — keine Ketten aus Einzeiler-Bullets für jeden Schritt. "
+                "Rechenbeispiele: Schritte **zusammenhängend erklären** und Ausdrücke in `$...$` setzen."
             )
         if step == "core_learning" and wc:
-            bullets.append("- Lernen/Erklären: Code in fenced Blocks zeigen, wenn die Vorlesung Code nutzt.")
+            bullets.append(
+                "- Core Learning (Code): fenced Blocks wenn die Vorlesung Code nutzt; **vor/nach** dem Block kurz "
+                "**was** der Code tut und **wie** er zum restlichen Thema passt — nicht nur nackter Code."
+            )
         if step == "revision_sheet" and wm:
             bullets.append(
                 "- Merkblatt: Kernaussagen und Regeln in `$...$`; nur zum Auswendigen, was die Vorlesung wirklich verlangt."
@@ -181,11 +185,15 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
         )
     if step == "core_learning" and wm:
         bullets_en.append(
-            "- Core Learning: use `$...$` / `$$...$$` for formulas; structure each main topic with ##/### headings. "
-            "For inline examples: show each calculation step in `$...$`."
+            "- Core Learning (math): use `$...$` / `$$...$$` for formulas. "
+            "Weave formulas into **explanatory prose** — avoid chains of one-line bullets per micro-step. "
+            "For worked steps: explain the **flow in connected sentences** and put expressions in `$...$`."
         )
     if step == "core_learning" and wc:
-        bullets_en.append("- Core Learning: use fenced code blocks when the lecture uses code.")
+        bullets_en.append(
+            "- Core Learning (code): fenced blocks when the lecture uses code; **before/after** each block, briefly "
+            "say **what** it does and **how** it fits the topic — not code alone."
+        )
     if step == "revision_sheet" and wm:
         bullets_en.append(
             "- Revision sheet: compact formulas/rules in `$...$`; separate memorize vs understand."
@@ -432,6 +440,10 @@ def _core_learning_map_depth_calibration(a: LectureAnalysis) -> str:
             base += (
                 "\nKonzeptuell: **Intuition und Unterscheidungen** vor Formalismus, außer die Quelle ist formal."
             )
+        base += (
+            "\nTiefe zeigen durch **Ausführlichkeit der Erklärung, Übergänge und Vernetzung** — "
+            "nicht durch längere Aufzählungslisten."
+        )
         return base
     base = (
         "\nFurther depth weighting: **side topics brief** (1–3), **core topics** (7–10) get **more space** — "
@@ -450,6 +462,9 @@ def _core_learning_map_depth_calibration(a: LectureAnalysis) -> str:
         base += "\nOrganizational: **short practical** sections — no fake theory/math voice."
     if k == "conceptual":
         base += "\nConceptual: prioritize **intuition and distinctions** over formalism unless the source is formal."
+    base += (
+        "\nShow depth through **richer explanation, transitions, and linking** — not through longer bullet lists."
+    )
     return base
 
 
@@ -497,12 +512,14 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
         if k == "mathematical":
             return (
                 "\n\nSchwerpunkt Core Learning: **Notation exakt**, Definitionen, Symbolbedeutung, "
-                "Rechenbeispiele wenn die Vorlesung sie führt; typische Verwechslungen."
+                "Rechenbeispiele wenn die Vorlesung sie führt; typische Verwechslungen. "
+                "**Fluss in Prosa** zwischen Definition, Notation und Folgerung; Bullets nur für Fälle/Regeln/Schritte, "
+                "wenn die Struktur es verlangt."
             )
         if k == "conceptual":
             return (
                 "\n\nSchwerpunkt Core Learning: **Intuition, Begriffsnetz, Zusammenhänge** — "
-                "Formeln nur wenn die Quelle sie wirklich braucht."
+                "Formeln nur wenn die Quelle sie wirklich braucht. **Absätze dominieren; Bullets nur punktuell.**"
             )
         if k == "proof_heavy":
             return (
@@ -512,7 +529,7 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
         if k == "coding":
             return (
                 "\n\nSchwerpunkt Core Learning: **Code lesen, Bedeutung, Verhalten**, typische Fehler; "
-                "Code in fenced Blocks."
+                "Code in fenced Blocks. **Prosa verbindet** vor/nach Code — keine Bullet-Zeilen statt Erklärung."
             )
         if k == "mixed":
             return (
@@ -528,12 +545,13 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
     if k == "mathematical":
         return (
             "\n\nCore Learning focus: **exact notation**, definitions, symbol meaning, "
-            "worked steps when the lecture does; typical confusions."
+            "worked steps when the lecture does; typical confusions. **Prose flow** between definition, notation, "
+            "and consequences; bullets only for cases/rules/steps when structure demands it."
         )
     if k == "conceptual":
         return (
             "\n\nCore Learning focus: **intuition, concept web, relationships** — "
-            "formulas only when the source truly needs them."
+            "formulas only when the source truly needs them. **Paragraphs first; bullets only where they help.**"
         )
     if k == "proof_heavy":
         return (
@@ -542,7 +560,8 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
         )
     if k == "coding":
         return (
-            "\n\nCore Learning focus: **code meaning, behavior, pitfalls**; fenced code blocks."
+            "\n\nCore Learning focus: **code meaning, behavior, pitfalls**; fenced code blocks. "
+            "**Prose bridges** before/after code — not bullet lines instead of explanation."
         )
     if k == "mixed":
         return (
@@ -550,6 +569,61 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
             "match explanation volume to actual source emphasis."
         )
     return ""
+
+
+def _core_learning_prose_instructions(a: LectureAnalysis) -> str:
+    """
+    Narrative-first rules for Core Learning: connected explanation, not bullet dumps.
+    Adaptive depth preserved — deeper topics get richer prose and transitions, not more list items.
+    """
+    if a.detected_language == "de":
+        org = ""
+        if a.is_organizational or a.lecture_kind == "organizational":
+            org = (
+                "\n\n**Organisatorische Vorlesung:** sachlich und **kurz in Absätzen**; kein künstlich ausgedehntes "
+                "„Tutor“-Pathos — Fokus auf Abläufe, Regeln, was Studierende tun müssen."
+            )
+        return (
+            "**Schreibweise (verbindlich):**\n"
+            "- Schreibe wie ein **Tutor**, der die Vorlesung **durchgehend erklärt** — **nicht** wie ein Werkzeug, "
+            "das Folien in Stichpunkte zerlegt.\n"
+            "- **Standard sind kurze Absätze** mit klarem Faden: eine Idee führt zur nächsten; nutze **Übergänge** "
+            "(„Daraus folgt …“, „Das setzt voraus …“, „Damit wird verständlich, warum …“).\n"
+            "- **Stichpunkte sparsam:** nur wenn sie wirklich helfen — z. B. Prinzipienlisten, Fälle/Typen, "
+            "kurze Vergleiche, oder echte **Schritt-für-Schritt**-Verfahren. **Nicht** jedes Thema als Bullet-Kette.\n"
+            "- **Lecture-Flow:** Pro Hauptthema klar machen: **was** das Thema ist, **wie** es zum vorherigen Thema "
+            "passt, **warum** es an dieser Stelle der Vorlesung steht, **worauf** spätere Teile aufbauen.\n"
+            "- **Topic Map vs. Core Learning:** Die Topic Map ist die **Karte** — hier **nicht** die gleichen "
+            "Einträge als flache Bullet-Liste mit Mini-Definitionen wiederholen. Stattdessen **durch die Themen "
+            "hindurch erklären**, sodass man den **Aufbau der Vorlesung** spürt.\n"
+            "- **Adaptive Tiefe:** Tiefere Scores bedeuten **mehr erklärende Substanz, bessere Vernetzung und "
+            "Beispiele im Fluss** — nicht „mehr Bullets“.\n"
+            "- Vermeide **glossarartige** Wiederholung: Begriffe **einmal sauber einführen**, danach **verbinden**."
+            + org
+        )
+    org_en = ""
+    if a.is_organizational or a.lecture_kind == "organizational":
+        org_en = (
+            "\n\n**Organizational lecture:** keep it **practical and compact in paragraphs**; no fake extended "
+            "“tutor theater” — focus on flows, rules, and what students must do."
+        )
+    return (
+        "**Writing style (mandatory):**\n"
+        "- Write like a **tutor explaining the lecture end-to-end** — **not** like a slide extractor turning "
+        "everything into bullets.\n"
+        "- **Default to short paragraphs** with a clear thread: one idea leads to the next; use **transitions** "
+        "(“This means…”, “That relies on…”, “Once you see why…”).\n"
+        "- **Use bullets sparingly** — only when they truly help: principles, types/categories, short comparisons, "
+        "or genuine **step-by-step** procedures. **Do not** default every topic to a bullet list.\n"
+        "- **Lecture flow:** For each major topic, make explicit: **what** it is, **how** it connects to what came "
+        "before, **why** it appears at this point, and **what** later parts depend on.\n"
+        "- **Topic Map vs Core Learning:** The Topic Map is the **map** — do **not** repeat it as a flat bullet "
+        "glossary with mini-definitions. **Teach through** the topics so the **structure of the lecture** is felt.\n"
+        "- **Adaptive depth:** Higher depth means **richer explanation, stronger links, examples in-flow** — "
+        "**not** “more bullets”.\n"
+        "- Avoid **glossary repetition**: introduce terms **once clearly**, then **reuse and connect**."
+        + org_en
+    )
 
 
 def _revision_kind_addon(a: LectureAnalysis) -> str:
@@ -819,23 +893,24 @@ def _prompt_core_learning(
 
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Core Learning** als Haupt-Lernteil.\n"
-            "Schreibe wie ein Tutor — erkläre die wichtigen Teile der Vorlesung wirklich, nicht nur auflisten.\n\n"
-            "Struktur:\n"
+            "Erstelle **Core Learning** als Haupt-Lernteil — die **eigentliche Erklärung** der Vorlesung "
+            "(nicht eine zweite Stichpunktliste).\n\n"
+            + _core_learning_prose_instructions(a)
+            + "\n\n"
+            "Struktur (nur Rahmen):\n"
             "- Oberste Überschrift exakt: ## Core Learning\n"
-            "- Dann Hauptthemen mit ### Überschriften (je Thema ein Abschnitt).\n"
-            "- Unterabschnitte mit #### nur wenn nötig.\n\n"
-            "Inhalt pro Thema (je nach Tiefe):\n"
-            "- Hohe Tiefe: Intuition in klarer Sprache · Formale Definition/Regel/Notation · Warum es wichtig ist · "
-            "Wie man es in Aufgaben erkennt und anwendet · Typische Verwechslung wenn plausibel · Beispiel wenn hilfreich.\n"
-            "- Mittlere Tiefe: Klare Erklärung + Warum es wichtig ist · Vielleicht ein kurzes Beispiel.\n"
-            "- Geringe Tiefe: Kurze Erklärung — genug zum Verstehen, nicht mehr.\n\n"
+            "- Hauptthemen mit ### (ein Abschnitt pro Thema); Unterabschnitte #### nur wenn nötig.\n\n"
+            "Inhaltliche Tiefe (weiterhin adaptiv):\n"
+            "- Hohe Topic-Map-Tiefe: **längere zusammenhängende Erklärung**, stärkere Vernetzung, "
+            "typische Missverständnisse und Beispiele **im Erzählfluss** — nicht als Bullet-Wand.\n"
+            "- Mittlere Tiefe: klare Absatz-Erklärung + Bedeutung; ggf. ein kurzes Beispiel eingebettet.\n"
+            "- Geringe Tiefe: knappe Absätze — genug zum Verstehen, ohne Aufblasen.\n\n"
             "Strikte Regeln:\n"
-            "- Nicht jedes Thema gleich lang behandeln — Tiefe folgt der Vorlesungstiefe.\n"
-            "- Keine Glossar-Definitionen in voller Länge wiederholen (Topic Map hat sie bereits).\n"
-            "- Keine Quick-Overview-Orientierung wiederholen.\n"
-            "- Nur Inhalte aus der Vorlesung; keine erfundene Erweiterung.\n"
-            "- Revision-Sheet-Inhalte (reine Stichpunkte, Merklisten) gehören nicht hierher — die kommen später."
+            "- Nicht jedes Thema gleich lang — Tiefe folgt der Vorlesung und den Scores.\n"
+            "- Topic Map nicht als Glossar wiederholen; **hier lehren**, nicht erneut nur benennen.\n"
+            "- Keine Quick-Overview wiederholen.\n"
+            "- Nur Vorlesungsinhalt; keine erfundene Erweiterung.\n"
+            "- Reine Auswendig-Merklisten → Revision Sheet, nicht hier."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
@@ -843,23 +918,24 @@ def _prompt_core_learning(
         )
     else:
         extra = (
-            "Produce **Core Learning** as the main learning section.\n"
-            "Write like a tutor — actually explain the important parts of the lecture, not just list them.\n\n"
-            "Structure:\n"
+            "Produce **Core Learning** as the main teaching section — the **actual explanation layer** "
+            "(not a second bullet outline).\n\n"
+            + _core_learning_prose_instructions(a)
+            + "\n\n"
+            "Structure (skeleton only):\n"
             "- Top heading must be exactly: ## Core Learning\n"
-            "- Then main topics as ### headings (one section per topic).\n"
-            "- Sub-sections with #### only when needed.\n\n"
-            "Per-topic content (scaled by depth):\n"
-            "- High depth: intuition in plain language · formal definition/rule/notation · why it matters · "
-            "how to recognize and apply it · common confusion if plausible · example if helpful.\n"
-            "- Medium depth: clear explanation + why it matters · maybe a short example.\n"
-            "- Low depth: brief explanation only — enough to understand, no more.\n\n"
+            "- Main topics as ### (one section per topic); #### subheads only if needed.\n\n"
+            "Depth (still adaptive):\n"
+            "- High Topic Map depth: **longer connected explanation**, stronger linking, pitfalls and examples **in "
+            "the narrative flow** — not a wall of bullets.\n"
+            "- Medium: clear paragraph explanation + why it matters; maybe one short embedded example.\n"
+            "- Low: brief paragraphs — enough to understand, no padding.\n\n"
             "Strict rules:\n"
-            "- Do NOT give every topic equal depth — depth follows lecture depth.\n"
-            "- Do not restate Topic Map definitions in full (they are already there).\n"
-            "- Do not repeat Quick Overview orientation.\n"
-            "- Stay grounded in the lecture; do not invent a broader curriculum.\n"
-            "- Pure bullet-point memorization lists belong in the Revision Sheet, not here."
+            "- Do not give every topic equal length — follow the lecture and scores.\n"
+            "- Do not repeat the Topic Map as a glossary; **teach** here, not re-label.\n"
+            "- Do not repeat Quick Overview.\n"
+            "- Stay grounded in the lecture only.\n"
+            "- Pure memorize lists belong in the Revision Sheet, not here."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
