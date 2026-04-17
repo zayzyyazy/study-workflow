@@ -134,8 +134,10 @@ _CODE_PATTERNS = [
     re.compile(r"\{\s*\n"),
 ]
 
-# Logistics / admin — exams, platforms, deadlines (DE + EN)
-_ORG_PATTERNS = [
+# Logistics / admin — exams, platforms, deadlines (DE + EN).
+# NOTE: Raw date tokens are NOT counted 1:1 here — they appear hundreds of times in PDFs
+# (figures, citations, slide footers) and were falsely blowing up "organizational" scores.
+_ORG_LOGISTICS_PATTERNS = [
     re.compile(
         r"\b(prüfung|klausur|nachklausur|exam|midterm|final|quiz|test|abgabe|deadline|"
         r"assignment|homework|hausaufgabe|moodle|ecampus|ilias|stud\.ip|syllabus|"
@@ -157,8 +159,23 @@ _ORG_PATTERNS = [
         r"important dates|course schedule|tentative schedule)\b",
         re.I,
     ),
-    re.compile(r"\d{1,2}[./]\d{1,2}([./]\d{2,4})?"),  # dates like 12.04 or 12/04/26
 ]
+_ORG_DATE_TOKEN_RE = re.compile(r"\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\b")
+
+# Teaching content typical of perception / visual comm / design / HCI (DE-heavy courses).
+_CONTENT_DOMAIN_DE_RE = re.compile(
+    r"\b(wahrnehmung|wahrnehmungs|visuelle|visualisierung|visual|farbmodell|farb(?:raum|theorie)?|"
+    r"rgb|cmyk|hsl|typografie|typographie|gestalt|gestaltprinzip|komposition|layout|design|"
+    r"kontrast|ästhetik|aesthetik|raumwahrnehmung|konstanz|tiefenwahrnehmung|"
+    r"informationsvisualisierung|bildkomposition|semiotik|kommunikation|visual communication|"
+    r"interface|usability|nutzer|wahrnehmungspsychologie)\b",
+    re.I,
+)
+_CONTENT_DOMAIN_EN_RE = re.compile(
+    r"\b(perception|visual communication|color model|color space|typography|gestalt|layout|design|"
+    r"contrast|composition|aesthetics|depth perception|constancy|usability|interface)\b",
+    re.I,
+)
 
 # Proof-style wording (DE + EN)
 _PROOF_PATTERNS = [
@@ -347,6 +364,21 @@ def _pick_profile(math_s: float, code_s: float) -> tuple[ContentProfile, bool, b
     return "general", bool(math_s >= 0.5), bool(code_s >= 0.5)
 
 
+def _logistics_org_score(text: str) -> float:
+    """Weighted admin/logistics score; date-like tokens are capped (see module doc)."""
+    base = float(sum(len(p.findall(text)) for p in _ORG_LOGISTICS_PATTERNS))
+    raw_dates = len(_ORG_DATE_TOKEN_RE.findall(text))
+    date_pts = min(float(raw_dates), 14.0) * 0.42
+    return base + date_pts
+
+
+def _content_domain_score(text: str) -> float:
+    """Signals real teaching content (perception/design/HCI/etc.) — counters false 'organizational'."""
+    return float(len(_CONTENT_DOMAIN_DE_RE.findall(text))) + 0.9 * float(
+        len(_CONTENT_DOMAIN_EN_RE.findall(text))
+    )
+
+
 def _veto_false_organizational(
     *,
     org_hits: float,
@@ -357,6 +389,7 @@ def _veto_false_organizational(
     math_s: float,
     code_s: float,
     mode: GenerationMode,
+    domain_score: float = 0.0,
 ) -> bool:
     """
     True => do NOT classify as organizational: content-lecture structure outweighs scattered admin/exam keywords.
@@ -364,6 +397,14 @@ def _veto_false_organizational(
     Fixes false positives where words like Prüfung/Klausur/ECTS appear occasionally in real content lectures
     (e.g. media/design) but the unit is clearly structured teaching, not admin-only.
     """
+    # Strong teaching-content signals (design/perception/etc.) — not a logistics session
+    if domain_score >= 14.0 and n_chars >= 4000:
+        return True
+    if domain_score >= 8.0 and heading_lines >= 5 and n_chars >= 5000:
+        return True
+    if domain_score >= 5.5 and heading_lines >= 8 and n_chars >= 7000:
+        return True
+
     # Technical/math courses use different signals — veto less aggressively when math/code dominates
     technical = math_s >= 5.5 or code_s >= 5.5
 
@@ -400,17 +441,23 @@ def _veto_false_organizational(
     if mode == "strict_v2":
         if technical and heading_lines < 6 and n_chars < 4000:
             return False
+        if domain_score >= 4.0 and structure_score >= 4 and org_hits < 30:
+            return True
         if structure_score >= 5 and org_hits < 22 and org_domination < 2.8:
             return True
         if heading_lines >= 9 and n_chars >= 6000 and org_hits < 24:
             return True
         if heading_lines >= 7 and n_chars >= 10_000 and def_hits >= 5.0 and org_hits < 26:
             return True
+        if heading_lines >= 6 and n_chars >= 8000 and domain_score >= 3.0 and org_hits < 28:
+            return True
         return False
 
     # legacy: conservative — only veto clear false positives
     if technical:
         return False
+    if domain_score >= 6.0 and structure_score >= 5 and org_hits < 24:
+        return True
     if structure_score >= 7 and org_hits < 20 and org_domination < 2.2:
         return True
     if heading_lines >= 14 and n_chars >= 9000 and org_hits < 22:
@@ -442,6 +489,7 @@ def _classify_lecture_kind(
     heading_lines: int,
     n_chars: int,
     generation_mode: GenerationMode = "legacy",
+    domain_score: float = 0.0,
 ) -> tuple[LectureKind, bool, bool]:
     """
     Return (lecture_kind, is_organizational, is_proof_heavy).
@@ -466,6 +514,7 @@ def _classify_lecture_kind(
             math_s=math_s,
             code_s=code_s,
             mode=generation_mode,
+            domain_score=domain_score,
         ):
             return "organizational", True, False
 
@@ -494,6 +543,15 @@ def _classify_lecture_kind(
         return "conceptual", False, False
     if math_s < 3.5 and code_s < 3.5 and def_hits >= 6.0 and ex_hits < def_hits * 0.5:
         return "conceptual", False, False
+
+    # Perception / design / visual comm — often low on _DEF_PATTERNS but rich in domain vocabulary
+    if profile == "general" and math_s < 4.5 and code_s < 4.5:
+        if domain_score >= 12.0 and heading_lines >= 5 and n_chars >= 5000:
+            return "conceptual", False, False
+        if domain_score >= 8.0 and heading_lines >= 6 and n_chars >= 6000:
+            return "conceptual", False, False
+        if domain_score >= 6.0 and def_hits >= 4.0 and heading_lines >= 5:
+            return "conceptual", False, False
 
     return "general", False, False
 
@@ -552,20 +610,18 @@ def _structural_signals(
 
 def _org_hits_for_kind(sample: str) -> float:
     """
-    Raw admin/logistics hit count, adjusted when logistics cluster in the first slides only.
-
-    Prevents a content-heavy lecture from being labeled organizational because the PDF opens
-    with Moodle/Termine/Organisatorisches while the remainder is dense teaching text.
+    Admin/logistics score (dates capped via _logistics_org_score), adjusted when logistics
+    cluster in the first slides only.
     """
-    raw = _pattern_hits(_ORG_PATTERNS, sample)
+    raw = _logistics_org_score(sample)
     n = len(sample)
     if n < 5000:
         return raw
     head_len = min(int(n * 0.12), 4000)
     if head_len < 700:
         return raw
-    org_head = _pattern_hits(_ORG_PATTERNS, sample[:head_len])
-    org_rest = _pattern_hits(_ORG_PATTERNS, sample[head_len:])
+    org_head = _logistics_org_score(sample[:head_len])
+    org_rest = _logistics_org_score(sample[head_len:])
     if org_head >= 4.0 and org_rest <= org_head * 0.52 and n >= 6500:
         blended = org_rest + org_head * 0.28 + 1.0
         return float(min(raw, max(blended, org_rest * 1.05)))
@@ -634,6 +690,7 @@ def analyze_extracted_text(
     profile, hf, hc = _pick_profile(ms, cs)
 
     org_hits = _org_hits_for_kind(sample)
+    domain_score = _content_domain_score(sample)
     proof_hits = _pattern_hits(_PROOF_PATTERNS, sample)
     def_hits = _pattern_hits(_DEF_PATTERNS, sample)
     ex_hits = _pattern_hits(_EXAMPLE_PATTERNS, sample)
@@ -650,6 +707,7 @@ def analyze_extracted_text(
         heading_lines=heading_lines,
         n_chars=len(sample),
         generation_mode=generation_mode,
+        domain_score=domain_score,
     )
     depth = _depth_band(sample, ms, heading_lines)
 
@@ -664,8 +722,8 @@ def analyze_extracted_text(
     )
 
     notes = (
-        f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} proof={proof_hits:.1f} "
-        f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
+        f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} domain={domain_score:.1f} "
+        f"proof={proof_hits:.1f} def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
         f"exercise_material={has_ex} practical={pract_dens} pse={pse} "
         f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden} gen_mode={generation_mode} "
         f"core_src={core_source} ex_split_chars={len(ex_sample)}"

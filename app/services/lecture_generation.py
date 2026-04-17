@@ -547,7 +547,7 @@ def _exercise_application_addon(a: LectureAnalysis, step: str) -> str:
             )
         elif step == "core_learning":
             base += (
-                "- Topic-Lektionen: in **`#### In Aufgaben / Übungen`** (wenn genutzt) zeigen, wie man Aufgaben angeht — "
+                "- Topic-Lektionen: in **`#### Aufgaben / Prüfungsnähe`** (wenn genutzt) zeigen, wie man Aufgaben angeht — "
                 "aus der Quelle; **keine** Meta-Überschriften.\n"
             )
         elif step == "quick_overview":
@@ -572,7 +572,7 @@ def _exercise_application_addon(a: LectureAnalysis, step: str) -> str:
         )
     elif step == "core_learning":
         base += (
-            "- Topic Lessons: in **`#### In exercises / tasks`** (when used) show how to approach tasks — "
+            "- Topic Lessons: in **`#### Tasks / exam angle`** (when used) show how to approach tasks — "
             "grounded in the source; **no** meta headings.\n"
         )
     elif step == "quick_overview":
@@ -930,19 +930,22 @@ def _topic_lessons_prose_instructions(a: LectureAnalysis) -> str:
             "- Oberste Überschrift exakt: `## Topic-Lektionen`\n"
             "- **Kein** langer Gesamt-Essay und **kein** zusammenhängender „Summary-Block“ über die ganze Vorlesung — "
             "die Erklärung sitzt in den **Lektionen**.\n"
-            "- **3–6** Lektionen mit `### [Natürlicher Inhaltstitel]` — nur **tragende** Kernthemen (aus Überschriften/Wiederholung "
-            "der Quelle; nicht alles abdecken).\n"
+            "- **3–6** Lektionen mit `### [Titel]` — **übernehme Titel bevorzugt aus Vorlesungsüberschriften / nummerierten Folienzeilen** "
+            "aus dem Material; **keine** austauschbaren Marketing-Kapitelnamen erfinden.\n"
             "- **Ungleiche Länge:** zentrale Themen **tiefer**, Randthemen **kürzer** — nicht gleich lange, glatte Blöcke.\n"
-            "- Pro Lektion in **dieser Reihenfolge** (nur mit `####` — **nicht** mit Meta-Labels wie „Kernproblem“):\n"
-            "  - `#### Was dieses Thema meint` — zusammenhängende Prosa, echte Erklärung (nicht nur Definition abtippen).\n"
-            "  - `#### Rolle in dieser Vorlesung` — Einordnung, was davor nötig war, wohin das nächste Kapitel führt.\n"
-            "  - `#### Typische Missverständnisse` — konkret, was Studierende verwechseln oder falsch lesen.\n"
-            "  - `#### In Aufgaben / Übungen` — **optional**, nur wenn die Quelle das hergibt.\n"
-            "  - `#### Kurzbeispiel oder Denkschritt` — **optional**, nur wenn es wirklich hilft.\n"
-            "- **Ton:** sachlich, direkt, prüfungsnah — kein Bildungsblog, kein Feld-Fachbuch.\n"
-            "- **Themen-Roadmap** und Quick-Overview-Inhaltsverzeichnis **nicht** wiederholen — hier **lehren**.\n\n"
-            "**Verboten:** ein einziger Fließtext ohne `###`-Lektionen; Meta-Scaffold (Kernproblem, Gewichtung, Abhängigkeiten); "
-            "generische „wichtig in vielen Kontexten“-Sätze.\n"
+            "- Pro Lektion in **dieser Reihenfolge** (nur mit `####`):\n"
+            "  - `#### Inhalt aus der Vorlesung` — **sachlich nah an der Quelle**: welche **Begriffe, Unterscheidungen, Beispiele** "
+            "kommen vor; **konkrete** Formulierungen statt vager Umschreibung.\n"
+            "  - `#### Warum das in dieser Einheit zählt` — **nur** mit Bezug zu dem, was **vorher/nachher in der Quelle** steht "
+            "(keine freie „Kursgeschichte“).\n"
+            "  - `#### Typische Fehltritte` — **benannte** Verwechslungen/Kontraste **aus Vorlesung oder Übung**; "
+            "keine erfundenen Prüfungsängste.\n"
+            "  - `#### Aufgaben / Prüfungsnähe` — **optional**, nur wenn Übungsblatt oder Aufgabenwortlaut in der Quelle Anknüpfung gibt.\n"
+            "  - `#### Mini-Beispiel aus dem Material` — **optional**, nur wenn ein konkretes Quellenbeispiel wirklich hilft.\n"
+            "- **Ton:** sachlich, **quellenfixiert**, prüfungsnah — **kein** generisches „was man unter X versteht“.\n"
+            "- **Themen-Roadmap** und Quick-Overview-Inhaltsverzeichnis **nicht** wiederholen — hier **arbeiten**.\n\n"
+            "**Verboten:** ein einziger Fließtext ohne `###`-Lektionen; Absätze die in **jede** Vorlesung passen würden; "
+            "Meta-Scaffold („Kernproblem“, „Gewichtung“); glatte **gleich lange** Lektionen.\n"
             + org
         )
     org_en = ""
@@ -953,18 +956,20 @@ def _topic_lessons_prose_instructions(a: LectureAnalysis) -> str:
         "- Top heading must be exactly: `## Topic Lessons`\n"
         "- **No** long essay before the first lesson and **no** single smooth recap of the whole lecture — teaching lives in "
         "**lessons**.\n"
-        "- **3–6** lessons with `### [Natural content title]` — **backbone** topics only (from headings/repetition in the "
-        "source; do not cover everything).\n"
+        "- **3–6** lessons with `### [Title]` — prefer titles from **lecture headings / numbered outline lines** in the source; "
+        "**do not** invent interchangeable chapter names.\n"
         "- **Uneven depth:** go **deeper** on central topics, **shorter** on side topics — not equal polished blocks.\n"
-        "- Each lesson, in **this order** (use `####` only — **not** meta labels like “Core problem”):\n"
-        "  - `#### What this topic means` — connected prose, real explanation (not a pasted definition).\n"
-        "  - `#### Role in this lecture` — what had to come before, what this unlocks next.\n"
-        "  - `#### Typical misunderstandings` — concrete confusions.\n"
-        "  - `#### In exercises / tasks` — **optional**, only if grounded in the source.\n"
-        "  - `#### Short example or reasoning step` — **optional**, only if it truly helps.\n"
-        "- **Tone:** neutral, direct, exam-focused — not a blog, not a discipline overview.\n"
-        "- Do **not** repeat the Topic Roadmap / Quick Overview roadmap — **teach** here.\n\n"
-        "**Forbidden:** one continuous blob without `###` lessons; meta scaffold headings; generic “important in many contexts” filler.\n"
+        "- Each lesson, in **this order** (use `####` only):\n"
+        "  - `#### What the lecture actually says` — stay close to **terms, contrasts, examples** in the source; "
+        "**concrete** wording, not vague paraphrase.\n"
+        "  - `#### Why this matters in this unit` — only if you can tie it to **before/after in the source** (no free-floating "
+        "course narrative).\n"
+        "  - `#### Typical slips` — **named** confusions grounded in lecture or worksheet wording — no invented exam anxiety.\n"
+        "  - `#### Tasks / exam angle` — **optional**, only when exercises/task wording in the source gives a hook.\n"
+        "  - `#### Tiny example from the source` — **optional**, only when a concrete source instance helps.\n"
+        "- **Tone:** neutral, **source-tight**, exam-focused — not generic “what people mean by X”.\n"
+        "- Do **not** repeat the Topic Roadmap / Quick Overview roadmap — **work** here.\n\n"
+        "**Forbidden:** one continuous blob without `###` lessons; paragraphs that could fit any course; equally long polished lessons.\n"
         + org_en
     )
 
@@ -1078,25 +1083,57 @@ def _system_prompt(a: LectureAnalysis) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _extract_heading_outline(lecture_text: str, *, max_lines: int = 72, max_chars: int = 12000) -> str:
-    """Deterministic ##/### outline from source text for V2 anchoring."""
+def _extract_heading_outline(lecture_text: str, *, max_lines: int = 96, max_chars: int = 14000) -> str:
+    """
+    Deterministic structure hints: Markdown # headings plus common slide-PDF patterns
+    (numbered titles, short title-case lines) — many lectures lack `#` in extraction.
+    """
     out: list[str] = []
     acc = 0
+    seen: set[str] = set()
+
+    def _push(s: str) -> bool:
+        nonlocal acc
+        s = s.strip()
+        if not s or len(s) < 6:
+            return False
+        if len(s) > 400:
+            s = s[:397] + "..."
+        key = s.casefold()
+        if key in seen:
+            return False
+        seen.add(key)
+        out.append(s)
+        acc += len(s) + 1
+        return acc >= max_chars or len(out) >= max_lines
+
     for line in lecture_text.splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
         if re.match(r"^\s{0,3}#{1,3}\s+\S", line):
-            s = line.strip()
-            if len(s) > 400:
-                s = s[:397] + "..."
-            out.append(s)
-            acc += len(s) + 1
-            if acc >= max_chars or len(out) >= max_lines:
+            if _push(raw):
+                break
+            continue
+        # "3. Menschliche Wahrnehmung" slide / outline lines
+        if re.match(r"^\d{1,2}\.\s+\S", raw) and 10 < len(raw) < 220:
+            if _push(raw):
+                break
+            continue
+        # ALL CAPS slide titles (common in extracted decks)
+        if (
+            " " in raw
+            and raw.isupper()
+            and 12 <= len(raw) <= 90
+            and re.search(r"[A-ZÄÖÜ]", raw)
+        ):
+            if _push(raw):
                 break
     return "\n".join(out)
 
 
 def _topic_map_strict_v2_block(a: LectureAnalysis, heading_block: str) -> str:
-    if GENERATION_MODE != "strict_v2":
-        return ""
+    """Structure-anchored roadmap rules + extracted outline (always on — not tied to GENERATION_MODE)."""
     hb = heading_block.strip()
     if a.detected_language == "de":
         body = (
@@ -1133,16 +1170,15 @@ def _topic_map_strict_v2_block(a: LectureAnalysis, heading_block: str) -> str:
 
 
 def _core_learning_strict_v2_block(a: LectureAnalysis, heading_block: str) -> str:
-    if GENERATION_MODE != "strict_v2":
-        return ""
+    """Lesson anchoring to real lecture structure (always on)."""
     hb = heading_block.strip()
     if a.detected_language == "de":
         core = (
             "\n\n**strict_v2 — Topic-Lektionen (zusätzlich verbindlich):**\n"
             "- **Vorlesungsweg:** In der **Reihenfolge** der Quelle erklären (wie die Einheit aufbaut), **nicht** als "
             "Feldüberblick oder alphabetische Themenliste.\n"
-            "- **`###`-Abschnitte** an die **großen Blöcke** der Quelle anbinden — je Abschnitt: Zentrales, Voraussetzungen, "
-            "Übergang zum Nächsten (in eigenen Worten, ohne Meta-Überschriften wie „Abhängigkeiten“).\n"
+            "- **`###`-Lektionen** an **echte Überschriften/Folien** anbinden — in `#### Inhalt aus der Vorlesung` **konkrete** "
+            "Begriffe/Beispiele aus dem Text, keine generische „Bedeutung von X“.\n"
             "- **Keine** glatten Recap-Paragraphen ohne vorlesungsspezifische Kanten.\n"
             "- **Übungen:** Lösungsdenken an **dieselben** Begriffe koppeln wie die Vorlesung.\n"
         )
@@ -1156,8 +1192,8 @@ def _core_learning_strict_v2_block(a: LectureAnalysis, heading_block: str) -> st
     core_en = (
         "\n\n**strict_v2 — Topic Lessons (additionally mandatory):**\n"
         "- **Lecture path:** Explain in **source order** (how the unit builds), **not** as a field survey or sorted topic list.\n"
-        "- **`###` sections** should track **major source blocks** — each: central idea, prerequisites, transition to next "
-        "(in your own words; no meta scaffold headings).\n"
+        "- **`###` lessons** should track **major source blocks** — in `#### What the lecture actually says` use **concrete** "
+        "terms/examples from the text, not generic “what X means” filler.\n"
         "- **No** polished recap paragraphs without lecture-specific edges.\n"
         "- **Exercises:** tie reasoning to the **same** terms as the lecture.\n"
     )
@@ -1279,6 +1315,8 @@ def _prompt_topic_map(
             "Ziel: **prüfungs- und vorlesungsnahe Konzept-Einheiten** entlang der **Quellen-Gliederung** — was die Einheit "
             "**wirklich** herstellt; **4–10** Einträge, **präzise** Namen (vorzugsweise an **Überschriften** der Vorlesung "
             "angelehnt), **aussagekräftige** Tiefenscores.\n\n"
+            "**Anti-Broschüre:** Keine austauschbaren Sammelbegriffe („Einführung“, „Grundlagen“, „Überblick“, "
+            "„Anwendungen“) **ohne** vorlesungsspezifischen Zusatz — lieber **konkrete** Unterkapitel wie in der Quelle.\n\n"
             "Wichtig:\n"
             "- **Lieber weniger** als viele gleichwertige Schirmbegriffe. Rand-/Nebenthemen: **weglassen** "
             "oder maximal **ein** kurzer Eintrag mit niedrigem Score.\n"
@@ -1317,6 +1355,8 @@ def _prompt_topic_map(
             "Produce **Topic Roadmap** — a **tight** structural map (not a glossary dump or course brochure).\n\n"
             "Goal: **exam- and lecture-faithful units** along **source structure** — what this unit **actually** builds; "
             "**4–10** entries, **precise** names (prefer **lecture headings**), **meaningful** depth scores.\n\n"
+            "**Anti-brochure:** No interchangeable umbrella labels (“Introduction”, “Fundamentals”, “Overview”, "
+            "“Applications”) **without** lecture-specific substance — prefer **concrete** sub-units as in the source.\n\n"
             "Rules:\n"
             "- **Prefer fewer** umbrella labels. Minor/aside topics: **omit** or at most **one** short entry with a low score.\n"
             "- If both **lecture and exercises** stress a concept → **raise** practical/backbone weight.\n"
@@ -1403,7 +1443,7 @@ def _prompt_core_learning(
             + _topic_lessons_prose_instructions(a)
             + "\n\n"
             "Kalibrierung über die Themen-Roadmap (Tiefenscores → Länge der Lektion; hohe Tiefe = mehr Raum für "
-            "`Was dieses Thema meint` und Missverständnisse):\n"
+            "`Inhalt aus der Vorlesung` und `Typische Fehltritte`):\n"
             "- Hohe Roadmap-Tiefe (7–10): Lektion **ausführlicher**.\n"
             "- Mittlere Tiefe (4–6): **normal**.\n"
             "- Niedrige Tiefe (1–3): **kurze** Lektion.\n\n"
@@ -1426,7 +1466,7 @@ def _prompt_core_learning(
             + _topic_lessons_prose_instructions(a)
             + "\n\n"
             "Calibrate using the Topic Roadmap (depth scores → lesson length; high depth = more room for "
-            "`What this topic means` and misunderstandings):\n"
+            "`What the lecture actually says` and `Typical slips`):\n"
             "- High roadmap depth (7–10): **longer** lesson.\n"
             "- Medium (4–6): **normal**.\n"
             "- Low (1–3): **short** lesson.\n\n"
