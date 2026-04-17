@@ -102,6 +102,35 @@
 
 <p class="planner-stats">{{ dash.stats_line }} · Today: <strong>{{ dash.weekday_label }}</strong> {{ dash.today_iso }} · Generated {{ dash.generated_at }}</p>
 
+{% if dash.focus_lines %}
+<section class="planner-section" aria-labelledby="planner-focus-h">
+  <h2 id="planner-focus-h">Focus</h2>
+  <p class="muted small-print" style="margin-top:0;">Tied to your next classes and uploads.</p>
+  <ul class="planner-list">
+    {% for line in dash.focus_lines %}
+    <li>
+      {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+      {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if dash.course_attention %}
+<section class="planner-section" aria-labelledby="planner-attn-h">
+  <h2 id="planner-attn-h">Where to look</h2>
+  <ul class="planner-list">
+    {% for line in dash.course_attention %}
+    <li>
+      {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+      {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <div class="planner-grid">
   <section class="planner-card" aria-labelledby="planner-now">
     <h2 id="planner-now">Now</h2>
@@ -152,6 +181,39 @@
   </section>
 </div>
 
+<div class="planner-grid">
+  <section class="planner-card" aria-labelledby="planner-tom">
+    <h2 id="planner-tom">Tomorrow’s schedule</h2>
+    {% if dash.tomorrow_schedule %}
+    <ul class="planner-list">
+      {% for line in dash.tomorrow_schedule %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+  <section class="planner-card" aria-labelledby="planner-tom-study">
+    <h2 id="planner-tom-study">Before tomorrow</h2>
+    {% if dash.tomorrow_study %}
+    <ul class="planner-list">
+      {% for line in dash.tomorrow_study %}
+      <li>
+        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">—</p>
+    {% endif %}
+  </section>
+</div>
+
 <section class="planner-section" aria-labelledby="planner-next">
   <h2 id="planner-next">Next up</h2>
   {% if dash.next_up %}
@@ -187,6 +249,13 @@
 <div class="planner-grid">
   <section class="planner-card" aria-labelledby="planner-dd">
     <h2 id="planner-dd">Deep dives</h2>
+    {% if dash.deep_dive_by_course %}
+    <ul class="planner-list" style="margin-bottom:0.75rem;">
+      {% for c in dash.deep_dive_by_course %}
+      <li><a href="{{ c.href }}">{{ c.course_name }}: {{ c.count }} recommended missing</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if dash.deep_dive_lines %}
     <ul class="planner-list">
       {% for line in dash.deep_dive_lines %}

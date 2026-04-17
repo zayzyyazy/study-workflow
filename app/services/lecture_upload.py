@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import BinaryIO, Optional
 
 from app.services import course_service, extraction_service, lecture_service, storage_service
+from app.services import lecture_title_infer
 from app.services import lecture_meta
 from app.services import source_manifest
 from app.services.slugs import sanitize_folder_name
@@ -80,7 +81,6 @@ def create_lecture_from_upload(
     cid = int(course["id"])
     idx = lecture_service.lecture_index_for_course(cid)
     base_title = _derive_base_title(lecture_title, original_filename)
-    display_title = f"Lecture {idx:02d} - {base_title}"
     folder_name = storage_service.build_lecture_directory_name(idx, base_title)
     course_folder = str(course["slug"])
 
@@ -106,6 +106,16 @@ def create_lecture_from_upload(
         status = "extraction_failed"
         if not extraction_note:
             extraction_note = "Extraction produced no text."
+
+    final_base = base_title
+    if extraction.ok and extraction.text.strip():
+        inferred = lecture_title_infer.infer_base_title_from_extracted_text(
+            extraction.text,
+            fallback=base_title,
+        )
+        if inferred and len(inferred.strip()) >= 6:
+            final_base = inferred.strip()
+    display_title = f"Lecture {idx:02d} - {final_base}"
 
     source_rel = lecture_meta.relative_to_app(dest_file)
 

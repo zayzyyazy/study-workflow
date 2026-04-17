@@ -385,6 +385,7 @@ def list_lectures_for_planner() -> list[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.source_file_path,
+                   l.created_at,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id

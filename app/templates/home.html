@@ -1,5 +1,66 @@
 {% extends "base.html" %}
+{% block extra_css %}
+<style>
+.home-dash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 1rem 0 1.25rem;
+}
+.home-dash-actions .button { font-size: 0.9rem; }
+.home-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+.home-dash-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+.home-dash-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+.home-dash-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+.home-dash-card li { margin-bottom: 0.35rem; line-height: 1.35; }
+.home-dash-card .sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.05rem;
+}
+.home-dash-wide {
+  margin-bottom: 1.5rem;
+}
+.home-dash-wide h2 {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+.home-dash-wide ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
+</style>
+{% endblock %}
 {% block content %}
+{% set hd = home_dash | default({
+  'continue_lectures': [],
+  'not_started_pick': [],
+  'recent_lectures': [],
+  'courses_attention': [],
+  'deep_dive_picks': [],
+  'deep_dive_by_course': [],
+  'planner_next': [],
+  'planner_focus': [],
+  'stats_line': ''
+}) %}
 <div class="workspace-home workspace-home--simple">
 {% if notice %}
 <p class="flash flash-success">{{ notice }}</p>
@@ -18,8 +79,115 @@
 {% if study_totals.total > 0 %}
 <p class="home-study-summary muted">
   <span class="home-study-summary-strong">{{ study_totals.done }}</span> of {{ study_totals.total }} lecture{% if study_totals.total != 1 %}s{% endif %} marked done
+  {% if hd.stats_line %}· {{ hd.stats_line }}{% endif %}
 </p>
 {% endif %}
+
+<div class="home-dash-actions">
+  <a class="button" href="/planner">Open planner</a>
+  <a class="button button-secondary" href="/upload">Upload lecture</a>
+</div>
+
+<div class="home-dash-grid">
+  <section class="home-dash-card" aria-labelledby="hd-continue">
+    <h2 id="hd-continue">Continue</h2>
+    {% if hd.continue_lectures %}
+    <ul>
+      {% for lec in hd.continue_lectures %}
+      <li><a href="/lectures/{{ lec.id }}">{{ lec.title }}</a><span class="sub">{{ lec.course_name }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small-print" style="margin:0;">Nothing in progress.</p>
+    {% endif %}
+  </section>
+  <section class="home-dash-card" aria-labelledby="hd-ns">
+    <h2 id="hd-ns">Not started</h2>
+    {% if hd.not_started_pick %}
+    <ul>
+      {% for lec in hd.not_started_pick %}
+      <li><a href="/lectures/{{ lec.id }}">{{ lec.title }}</a><span class="sub">{{ lec.course_name }}{% if lec.is_starred %} · ★{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small-print" style="margin:0;">You’re caught up or empty.</p>
+    {% endif %}
+  </section>
+  <section class="home-dash-card" aria-labelledby="hd-next">
+    <h2 id="hd-next">Planner · next</h2>
+    {% if hd.planner_next %}
+    <ul>
+      {% for row in hd.planner_next %}
+      <li>
+        {% if row.href %}<a href="{{ row.href }}">{{ row.when }}</a>{% else %}{{ row.when }}{% endif %}
+        <span class="sub">{{ row.label }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small-print" style="margin:0;">Add schedule blocks on the planner.</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if hd.planner_focus %}
+<section class="home-dash-wide" aria-labelledby="hd-focus">
+  <h2 id="hd-focus">Suggested next</h2>
+  <ul>
+    {% for line in hd.planner_focus %}
+    <li>
+      {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+      {% if line.sub %}<span class="sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="home-dash-grid">
+  {% if hd.courses_attention %}
+  <section class="home-dash-card" aria-labelledby="hd-attn">
+    <h2 id="hd-attn">Courses needing work</h2>
+    <ul>
+      {% for c in hd.courses_attention %}
+      <li><a href="{{ c.href }}">{{ c.name }}</a><span class="sub">{{ c.note }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% if hd.deep_dive_by_course or hd.deep_dive_picks %}
+  <section class="home-dash-card" aria-labelledby="hd-dd">
+    <h2 id="hd-dd">Deep dives</h2>
+    {% if hd.deep_dive_by_course %}
+    <ul>
+      {% for c in hd.deep_dive_by_course %}
+      <li><a href="{{ c.href }}">{{ c.course_name }} · {{ c.count }} missing</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if hd.deep_dive_picks %}
+    <p class="muted small-print" style="margin:0.35rem 0 0;">Next to generate:</p>
+    <ul>
+      {% for d in hd.deep_dive_picks[:3] %}
+      <li><a href="/lectures/{{ d.lecture_id }}/topics/{{ d.slug }}">{{ d.topic_title }}</a><span class="sub">{{ d.course_name }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+  <section class="home-dash-card" aria-labelledby="hd-recent">
+    <h2 id="hd-recent">Recent in library</h2>
+    {% if hd.recent_lectures %}
+    <ul>
+      {% for lec in hd.recent_lectures %}
+      <li><a href="/lectures/{{ lec.id }}">{{ lec.title }}</a><span class="sub">{{ lec.course_name }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small-print" style="margin:0;">No lectures yet.</p>
+    {% endif %}
+  </section>
+</div>
 
 {% if starred_lectures %}
 <section class="workspace-section home-starred-section" aria-labelledby="starred-heading">

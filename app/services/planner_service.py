@@ -176,11 +176,52 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
                 str(lec.get("course_name") or ""),
             )
 
+    # Tomorrow: same logic for prep (compact)
+    tomorrow = today + timedelta(days=1)
+    tomorrow_rows: list[dict[str, Any]] = []
+    for s in schedule:
+        if not _occurs_on_day(s, tomorrow):
+            continue
+        tomorrow_rows.append(dict(s))
+    tomorrow_rows.sort(key=lambda r: str(r["start_time"]))
+
+    course_ids_tomorrow: set[int] = set()
+    for row in tomorrow_rows:
+        if str(row.get("kind")) == "lecture" and row.get("course_id"):
+            course_ids_tomorrow.add(int(row["course_id"]))
+
+    tomorrow_study: list[dict[str, Any]] = []
+    seen_t: set[str] = set()
+
+    def _add_t(text: str, href: str | None, sub: str | None) -> None:
+        if href and href in seen_t:
+            return
+        if href:
+            seen_t.add(href)
+        tomorrow_study.append({"text": text, "href": href, "sub": sub})
+
+    for cid in sorted(course_ids_tomorrow):
+        for lec in by_course.get(cid, []):
+            sp = lec.get("study_progress") or "not_started"
+            if sp == "done":
+                continue
+            if sp == "not_started":
+                _add_t(
+                    f"Tonight / tomorrow AM: skim «{lec['title']}»",
+                    f"/lectures/{lec['id']}",
+                    str(lec.get("course_name") or ""),
+                )
+            else:
+                _add_t(
+                    f"Tomorrow: finish «{lec['title']}»",
+                    f"/lectures/{lec['id']}",
+                    str(lec.get("course_name") or ""),
+                )
+
     # Next up (7 days)
     upcoming = _expand_instances(schedule, today, 8, after=now)
     next_up: list[dict[str, Any]] = []
     for dt, row in upcoming[:14]:
-        day = dt.date()
         next_up.append(
             {
                 "when": dt.strftime("%a %Y-%m-%d %H:%M"),
@@ -229,19 +270,104 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     for d in deadlines:
         d.pop("_sort", None)
 
-    # Deep dives missing
-    deep_rows = topic_deep_dive.list_missing_recommended_deep_dives(10)
+    # Deep dives missing (detail list — capped)
+    deep_rows = topic_deep_dive.list_missing_recommended_deep_dives(24)
     deep_dive_lines: list[dict[str, Any]] = []
-    for d in deep_rows:
+    for d in deep_rows[:8]:
         lid = int(d["lecture_id"])
         slug = d["slug"]
         deep_dive_lines.append(
             {
-                "text": f"Deep dive: {d['topic_title']} ({d['lecture_title']})",
+                "text": f"{d['topic_title']} · {d['lecture_title']}",
                 "href": f"/lectures/{lid}/topics/{slug}",
                 "sub": str(d.get("course_name") or ""),
             }
         )
+    deep_dive_by_course = topic_deep_dive.missing_deep_dives_by_course_summary()[:6]
+
+    # Focus: next class + strongest library ties (max 4 short lines)
+    focus_lines: list[dict[str, Any]] = []
+    upcoming_inst = _expand_instances(schedule, today, 10, after=now)
+    for dt, row in upcoming_inst:
+        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+            continue
+        if dt > now + timedelta(hours=96):
+            break
+        cid = int(row["course_id"])
+        cname = str(row.get("course_name") or "").strip() or "Course"
+        lecs_nd = [
+            l
+            for l in lectures
+            if int(l["course_id"]) == cid and (l.get("study_progress") or "") != "done"
+        ]
+        lecs_nd.sort(
+            key=lambda x: (
+                0 if x.get("study_progress") == "in_progress" else 1,
+                -(int(x.get("is_starred") or 0)),
+                x.get("title") or "",
+            )
+        )
+        if lecs_nd:
+            focus_lines.append(
+                {
+                    "text": f"Next «{cname}» class {dt.strftime('%a %H:%M')}: work on «{lecs_nd[0]['title']}»",
+                    "href": f"/lectures/{lecs_nd[0]['id']}",
+                    "sub": "your upload",
+                }
+            )
+        for d in deep_rows:
+            if int(d["course_id"]) == cid:
+                focus_lines.append(
+                    {
+                        "text": f"Generate deep dive: {d['topic_title']}",
+                        "href": f"/lectures/{d['lecture_id']}/topics/{d['slug']}",
+                        "sub": d.get("lecture_title"),
+                    }
+                )
+                break
+        break
+
+    if not focus_lines and deep_rows:
+        d0 = deep_rows[0]
+        focus_lines.append(
+            {
+                "text": f"Recommended deep dive: {d0['topic_title']}",
+                "href": f"/lectures/{d0['lecture_id']}/topics/{d0['slug']}",
+                "sub": str(d0.get("course_name") or ""),
+            }
+        )
+
+    focus_lines = focus_lines[:4]
+
+    # Courses that need attention (unfinished work + missing dives)
+    course_attention: list[dict[str, Any]] = []
+    for c in deep_dive_by_course:
+        course_attention.append(
+            {
+                "text": f"{c['course_name']}: {c['count']} recommended deep dive(s) missing",
+                "href": f"/courses/{c['course_id']}",
+                "sub": "from your topic maps",
+            }
+        )
+    for cid, lecs in by_course.items():
+        total = len(lecs)
+        if total < 2:
+            continue
+        undone = sum(1 for l in lecs if (l.get("study_progress") or "") != "done")
+        if undone == 0 or undone == total:
+            continue
+        name = str(lecs[0].get("course_name") or "")
+        if any(int(x["course_id"]) == cid for x in deep_dive_by_course):
+            continue
+        course_attention.append(
+            {
+                "text": f"{name}: {undone}/{total} lectures not done",
+                "href": f"/courses/{cid}",
+                "sub": "mixed progress",
+            }
+        )
+        if len(course_attention) >= 6:
+            break
 
     # One-line stats
     n_ip = sum(1 for lec in lectures if lec.get("study_progress") == "in_progress")
@@ -262,7 +388,20 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             }
             for r in today_rows
         ],
-        "today_study": today_study,
+        "today_study": today_study[:10],
+        "tomorrow_schedule": [
+            {
+                "text": f"{r['start_time']}–{r['end_time']} · {r['title']}",
+                "href": _course_href(r),
+                "sub": f"{r.get('kind') or ''}"
+                + (f" · {r.get('course_name')}" if r.get("course_name") else ""),
+            }
+            for r in tomorrow_rows
+        ],
+        "tomorrow_study": tomorrow_study[:8],
+        "focus_lines": focus_lines,
+        "course_attention": course_attention[:8],
+        "deep_dive_by_course": deep_dive_by_course,
         "next_up": next_up,
         "catch_up": catch_up[:16],
         "deadlines": deadlines,

@@ -255,6 +255,12 @@ def _user_prompt_topic_deep_dive(
             "- **Beispiele / Aufgaben / Lösungslogik:** wenn die Quelle Aufgaben oder Muster enthält, darauf abstimmen; "
             "sonst sparsam und sachlich.\n"
             "- Keine Meta-Floskeln („In diesem Abschnitt…“). Keine künstliche Länge.\n"
+            "- **Kernerklärung:** ausführlich genug zum Lernen — zusammenhängende Prosa (mehrere Absätze wo nötig), "
+            "**keine** reine Stichwortliste; Begriffe präzise wie in der Vorlesung.\n"
+            "- **Übungsblatt / Aufgaben:** wenn Übungsmaterial vorhanden ist, **mindestens zwei** konkrete "
+            "Aufgabenstile, Formulierungen oder Muster aus der Quelle (nichts erfinden).\n"
+            "- **Erarbeitete Denkweise:** mindestens **ein** durchgängiges Mini-Beispiel: was zuerst prüfen → "
+            "typischer Fehler → sinnvoller Lösungsweg (ohne Endlösung zu erzwingen, wenn die Quelle sie nicht hat).\n"
         )
         ctx = ""
         if topic_map_excerpt.strip():
@@ -297,6 +303,12 @@ def _user_prompt_topic_deep_dive(
             "do not invent secret exam knowledge.\n"
             "- **Examples / tasks / reasoning:** align with worksheet patterns when present.\n"
             "- No filler meta-narration. No padding.\n"
+            "- **Core explanation:** enough to actually learn from — connected prose (multiple paragraphs if needed), "
+            "**not** a bare bullet list; terms match the lecture.\n"
+            "- **Problem sets / exercises:** if exercise material exists, include **at least two** concrete task "
+            "patterns, phrasings, or structures from the source (invent nothing).\n"
+            "- **Worked reasoning:** at least **one** mini walkthrough: what to check first → typical mistake → "
+            "good reasoning path (do not force a final answer if the source does not provide it).\n"
         )
         ctx = ""
         if topic_map_excerpt.strip():
@@ -381,11 +393,12 @@ def run_topic_deep_dive_generation(lecture_id: int, slug: str) -> tuple[bool, st
         lesson_ex = extract_core_learning_section(core_raw, topic_title)
 
     sys = _system_prompt(analysis) + "\n\n" + (
-        "**Topic Deep Dive (zusätzlich):** Genau **ein** Thema. Längere Ausarbeitung als die Topic-Lektion, "
-        "aber immer noch quellgebunden und prüfungsrealistisch begrenzt.\n"
+        "**Topic Deep Dive (zusätzlich):** Genau **ein** Thema. Längere, **studier-taugliche** Ausarbeitung als "
+        "die Topic-Lektion — substanziell in jeder Sektion, kein „noch zusammengefasst“. Immer noch quellgebunden "
+        "und prüfungsrealistisch begrenzt.\n"
         if analysis.detected_language == "de"
-        else "**Topic Deep Dive (add-on):** Exactly **one** topic. Longer than the Topic Lesson, "
-        "still source-bound and realistically exam-scoped.\n"
+        else "**Topic Deep Dive (add-on):** Exactly **one** topic. Longer, **study-ready** depth than the Topic "
+        "Lesson — every section must earn its space; still source-bound and exam-realistic.\n"
     )
 
     user = _user_prompt_topic_deep_dive(
@@ -402,7 +415,7 @@ def run_topic_deep_dive_generation(lecture_id: int, slug: str) -> tuple[bool, st
     ok, md_out, err_msg = openai_service.chat_completion_markdown(
         system_prompt=sys,
         user_prompt=user,
-        max_tokens=8192,
+        max_tokens=12288,
     )
     if not ok:
         return False, err_msg or "Generation failed."
@@ -483,6 +496,7 @@ def list_missing_recommended_deep_dives(limit: int = 12) -> list[dict[str, Any]]
             out.append(
                 {
                     "lecture_id": lec["id"],
+                    "course_id": int(lec["course_id"]),
                     "lecture_title": lec["title"],
                     "course_name": lec["course_name"],
                     "topic_title": t["title"],
@@ -492,4 +506,25 @@ def list_missing_recommended_deep_dives(limit: int = 12) -> list[dict[str, Any]]
             )
             if len(out) >= limit:
                 return out
+    return out
+
+
+def missing_deep_dives_by_course_summary() -> list[dict[str, Any]]:
+    """Courses with at least one missing recommended deep dive."""
+    rows = list_missing_recommended_deep_dives(200)
+    by: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        cid = int(r["course_id"])
+        by.setdefault(cid, []).append(r)
+    out: list[dict[str, Any]] = []
+    for cid, items in sorted(by.items(), key=lambda x: -len(x[1])):
+        first = items[0]
+        out.append(
+            {
+                "course_id": cid,
+                "course_name": first["course_name"],
+                "count": len(items),
+                "href": f"/lectures/{first['lecture_id']}/topics/{first['slug']}",
+            }
+        )
     return out

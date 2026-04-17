@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
-from app.services import course_service, lecture_service
+from app.services import course_service, home_dashboard_service, lecture_service
 from app.services.storage_view import attach_disk_folder_names
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
@@ -21,6 +21,7 @@ def home(request: Request) -> HTMLResponse:
     notice = request.query_params.get("notice")
     study_totals = lecture_service.study_progress_library_totals()
     starred = attach_disk_folder_names(lecture_service.list_starred_lectures(limit=24))
+    home_dash = home_dashboard_service.build_home_dashboard()
     return templates.TemplateResponse(
         request,
         "home.html",
@@ -31,6 +32,7 @@ def home(request: Request) -> HTMLResponse:
             "notice": notice,
             "study_totals": study_totals,
             "starred_lectures": starred,
+            "home_dash": home_dash,
         },
     )
 
