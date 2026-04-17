@@ -264,22 +264,35 @@ def _anti_generic_rules(a: LectureAnalysis) -> str:
     """Cross-cutting rules to reduce uniform, filler-heavy outputs."""
     if a.detected_language == "de":
         return (
-            "Anti-Fülltext (verbindlich):\n"
-            "- Nicht jedes Thema gleich tief behandeln — **Tiefe proportional** zur Rolle in der Vorlesung.\n"
-            "- Keine künstliche Vollständigkeit: lieber **präzise und kurz** wo die Quelle dünn ist.\n"
-            "- Keine wiederholten Glossar-Definitionen in jedem Abschnitt; **einmal klar, dann verbinden**.\n"
-            "- Keine erfundenen „Alltagsbeispiele“, nur wenn sie wirklich helfen.\n"
-            "- Keine gleichförmigen Abschnitte — **variiere Struktur und Länge** nach inhaltlicher Bedeutung.\n"
-            "- Offensichtliches nicht überdehnen; **Kernideen** dort klar machen, wo die Vorlesung Gewicht legt."
+            "**Qualitätsvertrag (verbindlich):**\n"
+            "**1) Kein generischer Fülltext:** Sätze wie „wichtig in vielen Bereichen“, „hilft beim Verständnis“, "
+            "„relevant für weiteres Studium“, „es ist wesentlich zu wissen“ — **nur** wenn die **Vorlesung** das "
+            "konkret hergibt. **Test:** Könnte der Satz fast unverändert in eine andere Vorlesung? → **Streichen oder schärfen.**\n"
+            "**2) Keine gleiche Gewichtung:** Nicht jedes Thema verdient gleich viel Raum — **wenige zentrale Konzepte** "
+            "bekommen den Großteil der Erklärung; Randthemen **kurz**.\n"
+            "**3) Kein Fachbuch über das ganze Feld:** Diese **eine Vorlesung** lehren — nicht das gesamte Gebiet.\n"
+            "**4) Keine aufgesetzte Praxis:** Keine flachen Real-Life-Beispiele nur für Show. Abstrakt bleiben, wenn die Quelle "
+            "abstrakt ist; **Übungs-/Quellbeispiele** vorziehen.\n"
+            "**5) Keine Wiederholung zwischen Abschnitten:** Quick Overview ≠ Mini-Fassung von Topic Map/Core Learning. "
+            "Jeder Abschnitt hat **einen Job** — nicht dieselben Inhalte in anderem Satzbau.\n"
+            "**6) Kürzer statt weicher:** Lieber **präzise und selektiv** als lang und höflich. Keine künstliche Vollständigkeit.\n"
+            "Zusätzlich: Glossar-Definitionen **nicht** in jedem Abschnitt wiederholen; **einmal klar, dann vernetzen**. "
+            "Gleich lange, glatt polierte Absätze für jedes Thema vermeiden — **Priorität sichtbar machen**."
         )
     return (
-        "Anti-generic behavior (mandatory):\n"
-        "- Do **not** explain every topic at the same depth — scale depth to **importance in the lecture**.\n"
-        "- Avoid fake completeness: prefer **short and precise** when the source is thin.\n"
-        "- Do not repeat glossary-style definitions in every section; **define once, then reuse**.\n"
-        "- Do not invent shallow “real-life” examples unless they genuinely clarify.\n"
-        "- Avoid uniform sections — **vary structure and length** by conceptual weight.\n"
-        "- Do not over-expand trivial points; spend words on what the lecture **actually emphasizes**."
+        "**Quality contract (mandatory):**\n"
+        "**1) No generic filler:** Ban vague lines like “important in many fields”, “helps students understand”, "
+        "“relevant for further study”, “it is essential to know” **unless** the **lecture text** grounds them. "
+        "**Test:** Could the sentence fit almost any lecture unchanged? → **Cut or sharpen with lecture-specific grounding.**\n"
+        "**2) No equal treatment:** Not every topic deserves equal space — spend most explanation on **a few central ideas**; "
+        "keep supporting topics **short**.\n"
+        "**3) No broad textbook chapter:** Teach **this lecture**, not the whole discipline.\n"
+        "**4) No fake practicality:** Do not invent shallow “real-life” examples for color. If the lecture is abstract, stay "
+        "honest; prefer **exercise/source-grounded** illustrations.\n"
+        "**5) No repetition across sections:** Quick Overview must not pre-summarize Topic Map / Core Learning. "
+        "Each section has a **distinct job** — not the same points rephrased.\n"
+        "**6) Prefer dense over polite:** **Selective and sharp** beats long and safe. No filler to sound complete.\n"
+        "Also: **define once**, then reuse; avoid equally polished paragraphs for every topic — **show priority**."
     )
 
 
@@ -289,17 +302,21 @@ def _scope_and_topic_rules(a: LectureAnalysis) -> str:
         return (
             "Bezug & Originalität (verbindlich):\n"
             "- Formulierungen und Schwerpunkte müssen **erkennbar zu genau dieser Vorlesung** passen — "
-            "nicht wie ein generisches Fachbuch.\n"
+            "nicht wie ein generisches Fachbuch oder ein „freundlicher Blog“.\n"
             "- **Kurs- und Themenabhängigkeit:** Begriffe, Beispiele und Gewichtung aus der **Quelle** ableiten; "
-            "keine austauschbare „Standard-Erklärung“.\n"
-            "- **Rhythmus und Stil** an die Vorlesung anpassen — nicht jede Einheit gleich klingen lassen."
+            "keine austauschbare Standard-Erklärung.\n"
+            "- **Rhythmus und Schärfe** an die Vorlesung anpassen — nicht jede Einheit gleich lang, gleich weich, gleich „balanced“.\n"
+            "- **Abschnitts-Jobs (nicht wiederholen):** Quick Overview = **Orientierung**; Topic Map = **selektive Struktur**; "
+            "Core Learning = **harte Kernpunkte, Abhängigkeiten, Missverständnisse, Denken**; Revision Sheet = **komprimiert** — "
+            "keine zweite Erklärphilosophie."
         )
     return (
         "Scope & originality (mandatory):\n"
-        "- Wording and emphasis must **clearly fit this specific lecture** — not a generic textbook.\n"
-        "- **Course/topic dependence:** derive terms, examples, and weighting from the **source**; "
-        "avoid interchangeable default explanations.\n"
-        "- **Vary rhythm and tone** to match the lecture — do not make every unit sound the same."
+        "- Wording must **clearly fit this specific lecture** — not a generic textbook or a soft educational blog post.\n"
+        "- **Course/topic dependence:** derive terms, examples, and weighting from the **source** only.\n"
+        "- **Vary sharpness and length** — not every subsection equally long, equally polite, or equally “balanced”.\n"
+        "- **Distinct section jobs (no duplication):** Quick Overview = **orientation**; Topic Map = **selective structure**; "
+        "Core Learning = **dependencies, pitfalls, reasoning**; Revision Sheet = **compressed** — not a second explainer."
     )
 
 
@@ -310,9 +327,11 @@ def _exercise_application_addon(a: LectureAnalysis, step: str) -> str:
     if a.detected_language == "de":
         base = (
             "\n\n**Übungs-/Anwendungsbezug (Heuristik: zusätzliche Quellen oder Aufgabenanteil erkannt):**\n"
-            "- Nutze **Aufgaben/Übungsblätter** in der Quelle, um zu erkennen, **welche Konzepte praktisch prüfungsrelevant** "
-            "sind und **wie Fragen typischerweise gestellt** werden.\n"
-            "- Themen, die in **Vorlesung und Übung** vorkommen, als **tragender** behandeln — nicht nur nennen.\n"
+            "- **Vorlesungslogik zuerst** — Übungen **schärfen** Relevanz und Fragetypen, ersetzen aber nicht die Struktur "
+            "der Einheit.\n"
+            "- Nutze **Aufgaben/Übungsblätter** in der Quelle, um **praktische Gewichtung** und **typische Formulierungen** "
+            "zu erkennen.\n"
+            "- Themen, die in **Vorlesung und Übung** vorkommen, **stärker gewichten** — nicht nur nennen.\n"
         )
         if step == "topic_map":
             base += (
@@ -336,9 +355,9 @@ def _exercise_application_addon(a: LectureAnalysis, step: str) -> str:
         return base
     base = (
         "\n\n**Exercise / application context (heuristic: extra sources or task-heavy text detected):**\n"
-        "- Use **problem sets / worksheets** in the source to infer **what is practically important** and "
-        "**how questions are typically phrased**.\n"
-        "- Topics appearing in **both lecture and exercises** deserve **more weight** — not just a name-check.\n"
+        "- **Lecture logic first** — exercises **sharpen** relevance and question types; they do **not** replace lecture structure.\n"
+        "- Use worksheets to infer **practical weight** and **typical phrasing**.\n"
+        "- Topics in **both lecture and exercises** get **more weight** — not a name-check only.\n"
     )
     if step == "topic_map":
         base += (
@@ -660,55 +679,51 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
 
 def _core_learning_prose_instructions(a: LectureAnalysis) -> str:
     """
-    Narrative-first rules for Core Learning: connected explanation, not bullet dumps.
-    Adaptive depth preserved — deeper topics get richer prose and transitions, not more list items.
+    Core Learning: selective teaching, dependencies, solve-awareness — not a soft summary.
     """
     if a.detected_language == "de":
         org = ""
         if a.is_organizational or a.lecture_kind == "organizational":
             org = (
-                "\n\n**Organisatorische Vorlesung:** sachlich und **kurz in Absätzen**; kein künstlich ausgedehntes "
-                "„Tutor“-Pathos — Fokus auf Abläufe, Regeln, was Studierende tun müssen."
+                "\n\n**Organisatorische Vorlesung:** **knapp und sachlich** — keine Schein-Tiefe, keine Theorie erfinden."
             )
         return (
-            "**Schreibweise (verbindlich):**\n"
-            "- Schreibe wie ein **Tutor**, der die Vorlesung **durchgehend erklärt** — **nicht** wie ein Werkzeug, "
-            "das Folien in Stichpunkte zerlegt.\n"
-            "- **Standard sind kurze Absätze** mit klarem Faden: eine Idee führt zur nächsten; nutze **Übergänge** "
-            "(„Daraus folgt …“, „Das setzt voraus …“, „Damit wird verständlich, warum …“).\n"
-            "- **Stichpunkte sparsam:** nur wenn sie wirklich helfen — z. B. Prinzipienlisten, Fälle/Typen, "
-            "kurze Vergleiche, oder echte **Schritt-für-Schritt**-Verfahren. **Nicht** jedes Thema als Bullet-Kette.\n"
-            "- **Lecture-Flow:** Pro Hauptthema klar machen: **was** das Thema ist, **wie** es zum vorherigen Thema "
-            "passt, **warum** es an dieser Stelle der Vorlesung steht, **worauf** spätere Teile aufbauen.\n"
-            "- **Topic Map vs. Core Learning:** Die Topic Map ist die **Karte** — hier **nicht** die gleichen "
-            "Einträge als flache Bullet-Liste mit Mini-Definitionen wiederholen. Stattdessen **durch die Themen "
-            "hindurch erklären**, sodass man den **Aufbau der Vorlesung** spürt.\n"
-            "- **Adaptive Tiefe:** Tiefere Scores bedeuten **mehr erklärende Substanz, bessere Vernetzung und "
-            "Beispiele im Fluss** — nicht „mehr Bullets“.\n"
-            "- Vermeide **glossarartige** Wiederholung: Begriffe **einmal sauber einführen**, danach **verbinden**."
+            "**Core Learning — Auftrag (harte Priorität):**\n"
+            "**A) Kernproblem der Vorlesung:** Womit beschäftigt sich die Einheit **wirklich** — welches Problem, "
+            "welche Lücke, welche Fragestellung? Warum werden die zentralen Begriffe **jetzt** eingeführt?\n"
+            "**B) Abhängigkeiten:** Was muss **zuerst** sitzen? Was baut worauf auf? Was bricht zusammen, wenn ein "
+            "Frühschritt fehlt?\n"
+            "**C) Gewichtung:** **Meiste Substanz** nur auf **wenige tragende Konzepte** (hohe Topic-Map-Tiefe / "
+            "Wiederholung in Vorlesung+Übung). Randthemen: **1–3 Sätze** oder knapper Absatz — **nicht** aufblasen, "
+            "nur weil sie vorkommen.\n"
+            "**D) Nicht gleichförmig:** Kein Schema „Thema 1 Absatz, Thema 2 Absatz …“ in gleicher Länge und gleicher "
+            "Weichheit — **schärfere, längere** Abschnitte nur dort, wo die Vorlesung **wirklich** schwer oder zentral ist.\n"
+            "**E) Lösungs-/Prüfungsnähe (wenn Übungs-/Aufgabenanteil):** Welche **Fragetypen**, welche **Unterscheidungen** "
+            "beim Lösen, welche **Denkfallen**? Aus der Quelle ableiten — keine erfundenen Aufgaben.\n"
+            "**F) Stil:** Zusammenhängende Prosa, klare Übergänge; **Stichpunkte sparsam**. Topic Map **nicht** als "
+            "Prosa-Glossar wiederholen — **hier lehren und priorisieren**.\n"
+            "**Verbote:** Offensichtliches lang erklären; ausgewogene aber inhaltsleere Absätze; generische Motivation; "
+            "Feld-Wikipedia statt **diese Vorlesung**."
             + org
         )
     org_en = ""
     if a.is_organizational or a.lecture_kind == "organizational":
-        org_en = (
-            "\n\n**Organizational lecture:** keep it **practical and compact in paragraphs**; no fake extended "
-            "“tutor theater” — focus on flows, rules, and what students must do."
-        )
+        org_en = "\n\n**Organizational lecture:** **short and factual** — no fake depth."
     return (
-        "**Writing style (mandatory):**\n"
-        "- Write like a **tutor explaining the lecture end-to-end** — **not** like a slide extractor turning "
-        "everything into bullets.\n"
-        "- **Default to short paragraphs** with a clear thread: one idea leads to the next; use **transitions** "
-        "(“This means…”, “That relies on…”, “Once you see why…”).\n"
-        "- **Use bullets sparingly** — only when they truly help: principles, types/categories, short comparisons, "
-        "or genuine **step-by-step** procedures. **Do not** default every topic to a bullet list.\n"
-        "- **Lecture flow:** For each major topic, make explicit: **what** it is, **how** it connects to what came "
-        "before, **why** it appears at this point, and **what** later parts depend on.\n"
-        "- **Topic Map vs Core Learning:** The Topic Map is the **map** — do **not** repeat it as a flat bullet "
-        "glossary with mini-definitions. **Teach through** the topics so the **structure of the lecture** is felt.\n"
-        "- **Adaptive depth:** Higher depth means **richer explanation, stronger links, examples in-flow** — "
-        "**not** “more bullets”.\n"
-        "- Avoid **glossary repetition**: introduce terms **once clearly**, then **reuse and connect**."
+        "**Core Learning — mission (strict priority):**\n"
+        "**A) Core problem of the lecture:** What is this unit **actually** doing — which question, gap, or job? "
+        "Why are the central ideas introduced **here**?\n"
+        "**B) Dependencies:** What must come **first**? What builds on what? What fails if an earlier idea is missed?\n"
+        "**C) Weighting:** Put **most explanation** into **a few backbone concepts** (high Topic Map depth / repeated in "
+        "lecture+exercises). Side topics: **1–3 sentences** or one short paragraph — **do not** pad just because they appear.\n"
+        "**D) Not uniform:** Avoid equal-length, equally polished paragraphs for every ###. Go **longer and sharper** only "
+        "where the lecture is **genuinely** hard or central.\n"
+        "**E) Solve-orientation (when exercises exist):** What **question shapes**, **distinctions**, and **traps** matter? "
+        "Ground in the source — do not invent tasks.\n"
+        "**F) Style:** Connected prose; **bullets sparingly**. Do **not** re-teach the Topic Map as prose — **teach and "
+        "prioritize** here.\n"
+        "**Banned:** long explanations of obvious points; balanced but empty prose; generic motivation; field overview "
+        "instead of **this lecture**."
         + org_en
     )
 
@@ -759,11 +774,12 @@ def _revision_kind_addon(a: LectureAnalysis) -> str:
 def _system_prompt(a: LectureAnalysis) -> str:
     if a.detected_language == "de":
         base = (
-            "Du bist ein Lern-Coach / Tutor: Ziel ist echtes Üben und Verstehen — nicht nur eine kurze Zusammenfassung. "
-            "Erkläre verständlich, strukturiere für Wiederholung und Prüfung, nenne typische Fehler und Checks. "
-            "Schreibe in Markdown mit Überschriften (##, ###), Listen und **Fettdruck** für zentrale Begriffe. "
-            "Nur an der Vorlesung orientiert; nichts erfinden. "
-            "Die Sprach-/Inhaltsanalyse unten steuert die Formatierung; der Vorlesungstext ist maßgeblich."
+            "Du bist ein **strenger, selektiver Lern-Tutor** — kein höflicher Zusammenfasser. "
+            "Priorisiere was in **dieser** Vorlesung wirklich zählt; verschwende keine Worte auf Offensichtliches oder "
+            "generisches Fachbuchgelaber. "
+            "Erkläre **Abhängigkeiten**, **typische Fehlvorstellungen** und **wie man denkt** (besonders wo Übungsmaterial existiert). "
+            "Markdown mit ##, ###, sparsam Listen, **Fettdruck** nur für echte Schlüsselbegriffe. "
+            "Nur Quellinhalt; nichts erfinden. Analyse unten + Vorlesungstext steuern Schärfe und Format."
         )
         analysis = (
             f"Voranalyse: Ausgaben durchgehend auf **Deutsch**. "
@@ -779,11 +795,11 @@ def _system_prompt(a: LectureAnalysis) -> str:
         )
     else:
         base = (
-            "You are a learning coach / tutor: prioritize real teaching — not a thin abstract summary. "
-            "Explain clearly, structure for review and exams, surface common mistakes and self-checks. "
-            "Use Markdown with headings (##, ###), lists, and bold for key terms. "
-            "Be accurate to the lecture only; do not invent facts. "
-            "The lecture analysis below guides formatting; the lecture text itself is authoritative."
+            "You are a **sharp, selective teaching assistant** — not a polite summarizer. "
+            "Prioritize what matters in **this** lecture; do not waste words on obvious points or generic textbook prose. "
+            "Explain **dependencies**, **common confusions**, and **how to think** (especially when exercise material exists). "
+            "Use Markdown ##/###, lists sparingly, **bold** only for real anchors. "
+            "Ground everything in the source; invent nothing. The analysis below + lecture text set tone and constraints."
         )
         analysis = (
             f"Lecture analysis: write **all** outputs in **English**. "
@@ -819,18 +835,16 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Quick Overview** — kurze Orientierung, die ich vor allem anderen lese.\n\n"
-            "Beantworte klar und kompakt:\n"
-            "- Worum geht es in dieser Vorlesung?\n"
-            "- Was ist die zentrale Idee / das Kernthema?\n"
-            "- Warum ist das wichtig — was bringt mir das Verständnis davon?\n"
-            "- Wo passt diese Vorlesung in den Kurs — was kam davor, was ermöglicht sie?\n"
-            "- Worauf soll ich mich gedanklich einstellen, bevor ich die Details lese?\n\n"
+            "Erstelle **Quick Overview** — **kurze, scharfe Orientierung** (kein Mini-Fassung aller folgenden Abschnitte).\n\n"
+            "Beantworte **prägnant** und **vorlesungsspezifisch**:\n"
+            "- **Zentrale Frage / Problemstellung:** Worauf zielt die Einheit (nicht „das Thema allgemein“)?\n"
+            "- **Was soll die Vorlesung erreichen / etablieren?**\n"
+            "- **Warum im Kurs genau hier** — Bezug nur wenn aus Quelle/Kontext sicher?\n"
+            "- **Worauf achten** beim Lesen der restlichen Materialien?\n\n"
             "Format:\n"
-            "- 5–8 knappe Bullet-Points oder kurze Absätze.\n"
-            "- Kein Fülltext. Kein generisches Lehrbuch-Intro.\n"
-            "- Keine langen Definitionen, keine ausgearbeiteten Beispiele — die kommen später.\n"
-            "- Bezug auf den tatsächlichen Vorlesungsinhalt; nichts Erfundenes.\n\n"
+            "- **4–6** knappe Bullets **oder** sehr kurze Absätze — **Weniger Worte, mehr Kanten**.\n"
+            "- **Kein** motivierender Fülltext, **kein** Vorgriff auf Topic Map / Core Learning, **keine** Definitionen/Beispiele.\n"
+            "- Jeder Satz muss sich auf **diese** Vorlesung beziehen — sonst streichen.\n\n"
             "Oberste Überschrift exakt: ## Quick Overview"
         )
         extra += (
@@ -840,18 +854,16 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
         )
     else:
         extra = (
-            "Produce **Quick Overview** — the short orientation read before everything else.\n\n"
-            "Answer clearly and concisely:\n"
-            "- What is this lecture about?\n"
-            "- What is the central idea / main theme?\n"
-            "- Why does it matter — what does understanding this enable?\n"
-            "- Where does it fit in the course — what came before, what does this set up?\n"
-            "- What should I mentally focus on before reading the detailed materials?\n\n"
+            "Produce **Quick Overview** — **short, sharp orientation** (not a mini-summary of later sections).\n\n"
+            "Answer **tightly** and **lecture-specifically**:\n"
+            "- **Central question / problem:** What is this unit actually trying to do?\n"
+            "- **What should the lecture establish?**\n"
+            "- **Why here in the course** — only if safely grounded in the source/context.\n"
+            "- **What to watch for** when reading the rest?\n\n"
             "Format:\n"
-            "- 5–8 tight bullets or short paragraphs.\n"
-            "- No generic filler. No textbook-style preamble.\n"
-            "- No full definitions, no worked examples — those come later.\n"
-            "- Ground every statement in the actual lecture, not generic claims.\n\n"
+            "- **4–6** tight bullets **or** very short paragraphs — **fewer words, more edge**.\n"
+            "- No motivational filler, **no** preview of Topic Map / Core Learning, **no** definitions or worked examples.\n"
+            "- Every sentence must attach to **this** lecture — otherwise cut.\n\n"
             "Top heading must be exactly: ## Quick Overview"
         )
         extra += (
@@ -885,12 +897,13 @@ def _prompt_topic_map(
 
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Topic Map** — die strukturelle Karte dieser Vorlesung.\n\n"
-            "Ziel: Zeige, woraus die Vorlesung besteht, was zentral ist und wie die Themen zusammenhängen.\n\n"
+            "Erstelle **Topic Map** — **selektive** Strukturkarte (kein Glossar-Dump).\n\n"
+            "Ziel: Nur **tragende** Bausteine und **klare** Tiefe — weniger Einträge, dafür schärfere Scores.\n\n"
             "Wichtig:\n"
-            "- Nur die wirklich wichtigen Themen/Konzepte dieser Vorlesung (ca. 6–15).\n"
-            "- Nicht jeder Begriff braucht einen Slot — nur Themen mit echter Rolle in der Vorlesung.\n"
-            "- Keine langen Erklärungen hier — das ist eine Karte, kein Lernabschnitt.\n\n"
+            "- **Ca. 4–12** Themen — **lieber weniger** als viele gleichwertige Labels. Rand-/Nebenthemen: **weglassen** "
+            "oder maximal **ein** kurzer Eintrag mit niedrigem Score.\n"
+            "- Wenn Vorlesung **und** Übungen ein Konzept teilen → **höhere** praktische/tragende Gewichtung.\n"
+            "- Keine langen Erklärungen — **Karte**, kein zweites Core Learning.\n\n"
             "Für jedes Thema, dieses Format verwenden:\n\n"
             "### [Themenname]\n"
             "**Tiefe:** X/10\n"
@@ -919,12 +932,13 @@ def _prompt_topic_map(
         )
     else:
         extra = (
-            "Produce **Topic Map** — the structural map of this lecture.\n\n"
-            "Goal: show what this lecture is made of, what is central, and how topics connect.\n\n"
+            "Produce **Topic Map** — a **selective** structural map (not a glossary dump).\n\n"
+            "Goal: **fewer, sharper** entries with meaningful depth scores — not many equally weighted labels.\n\n"
             "Rules:\n"
-            "- Only the genuinely important topics/concepts from this lecture (aim for 6–15).\n"
-            "- Not every term needs a slot — only topics with a real role in the lecture.\n"
-            "- No long explanations here — this is a map, not a teaching section.\n\n"
+            "- **About 4–12** topics — **prefer fewer** over many similar entries. Minor/aside topics: **omit** or at most "
+            "**one** short entry with a low score.\n"
+            "- If both **lecture and exercises** stress a concept → **raise** practical/backbone weight.\n"
+            "- No long explanations — a **map**, not a second Core Learning.\n\n"
             "For each topic, use this exact format:\n\n"
             "### [Topic Name]\n"
             "**Depth:** X/10\n"
@@ -1011,11 +1025,12 @@ def _prompt_core_learning(
             "- Mittlere Tiefe: klare Absatz-Erklärung + Bedeutung; ggf. ein kurzes Beispiel eingebettet.\n"
             "- Geringe Tiefe: knappe Absätze — genug zum Verstehen, ohne Aufblasen.\n\n"
             "Strikte Regeln:\n"
-            "- Nicht jedes Thema gleich lang — Tiefe folgt der Vorlesung und den Scores.\n"
-            "- Topic Map nicht als Glossar wiederholen; **hier lehren**, nicht erneut nur benennen.\n"
-            "- Keine Quick-Overview wiederholen.\n"
+            "- **Weniger Länge, mehr Nutzen:** Lieber kürzer und schärfer als lang und weich — kein „sicherer“ Überblick.\n"
+            "- Nicht jedes ### gleich lang — **Zentrales ausführlich**, Rand kurz.\n"
+            "- Topic Map nicht als Glossar wiederholen; **hier lehren** mit Abhängigkeiten und Priorität.\n"
+            "- Quick Overview nicht wiederholen.\n"
             "- Nur Vorlesungsinhalt; keine erfundene Erweiterung.\n"
-            "- Reine Auswendig-Merklisten → Revision Sheet, nicht hier."
+            "- Merklisten → Revision Sheet, nicht hier."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
@@ -1037,11 +1052,12 @@ def _prompt_core_learning(
             "- Medium: clear paragraph explanation + why it matters; maybe one short embedded example.\n"
             "- Low: brief paragraphs — enough to understand, no padding.\n\n"
             "Strict rules:\n"
-            "- Do not give every topic equal length — follow the lecture and scores.\n"
-            "- Do not repeat the Topic Map as a glossary; **teach** here, not re-label.\n"
+            "- **Less length, more value:** prefer **shorter and sharper** over long, safe prose.\n"
+            "- Not every ### equal length — **deep where central**, brief on side material.\n"
+            "- Do not repeat the Topic Map as a glossary; **teach** with dependencies and priority.\n"
             "- Do not repeat Quick Overview.\n"
-            "- Stay grounded in the lecture only.\n"
-            "- Pure memorize lists belong in the Revision Sheet, not here."
+            "- Lecture-grounded only.\n"
+            "- Memorize lists → Revision Sheet, not here."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
             + _core_learning_structure_addon(a)
@@ -1055,15 +1071,16 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Revision Sheet** — kurze, prüfungsnahe Wiederholungsseite.\n\n"
+            "Erstelle **Revision Sheet** — **kompakte** Merk- und Prüfungsseite (**keine** zweite Erklärphilosophie).\n\n"
             "Aufbau:\n"
-            "- **Auswendig lernen**: Kernregeln, Formeln, Symbole, Fakten — nur was die Vorlesung wirklich verlangt.\n"
-            "- **Konzeptuell verstehen**: Wichtige Ideen, die ich auf Anhieb erklären können muss.\n\n"
+            "- **Auswendig lernen**: nur was die Vorlesung **wirklich** einfordert — Formeln, Symbole, Regeln, Fakten.\n"
+            "- **Konzeptuell verstehen**: Ideen, die ich **kurz** erklären können muss — **ohne** ausufernde Prosa.\n\n"
             "Regeln:\n"
-            "- Kurz, skimmbar, prüfungsorientiert.\n"
-            "- Keine langen Erklärungen — die stehen in Core Learning.\n"
-            "- Keine neuen Themen einführen.\n"
-            "- Bullet-Listen oder kompakte Tabellen bevorzugen.\n\n"
+            "- **Selektiv und kurz** — lieber wenige harte Punkte als lange Listen.\n"
+            "- **Keine** ausführlichen Erklärungen (→ Core Learning); nur **Stichworte, Checks, typische Fallen**.\n"
+            "- Typische **Frage-/Fehlermuster** und **Unterscheidungen** wenn Übungsmaterial nahelegt.\n"
+            "- Keine neuen Themen.\n"
+            "- Bullets / Mini-Tabellen; **dichte** Zeilen.\n\n"
             "Oberste Überschrift exakt: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
             + _revision_kind_addon(a)
@@ -1072,15 +1089,16 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
         )
     else:
         extra = (
-            "Produce a **Revision Sheet** — short, exam-friendly, skimmable.\n\n"
+            "Produce a **Revision Sheet** — **compact** cram sheet (**not** a second explainer).\n\n"
             "Structure:\n"
-            "- **Memorize**: key rules, formulas, symbols, facts — only what the lecture requires.\n"
-            "- **Understand conceptually**: important ideas I must be able to explain on the spot.\n\n"
+            "- **Memorize**: only what the lecture **actually** demands — rules, formulas, symbols, facts.\n"
+            "- **Understand conceptually**: ideas I can explain **briefly** — **no** essay prose.\n\n"
             "Rules:\n"
-            "- Keep it concise and skimmable.\n"
-            "- No long explanations — those belong in Core Learning.\n"
-            "- No new material; only what the lecture supports.\n"
-            "- Prefer bullet lists or compact tables.\n\n"
+            "- **Selective and short** — fewer hard hits beat long lists.\n"
+            "- **No** long explanations (→ Core Learning); **keywords, checks, typical traps** only.\n"
+            "- If exercises suggest it: **question types**, **distinctions**, **common mistakes**.\n"
+            "- No new material.\n"
+            "- Bullets / compact tables; **tight** lines.\n\n"
             "Top heading must be exactly: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
             + _revision_kind_addon(a)

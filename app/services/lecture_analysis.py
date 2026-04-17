@@ -404,16 +404,16 @@ def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bo
     n = max(len(sample), 1)
     per_10k = task_score / (n / 10_000.0)
 
-    has_exercise_material = has_marker or per_10k >= 15.0
+    has_exercise_material = has_marker or per_10k >= 11.0
 
-    if per_10k < 6.0 and not has_marker:
+    if per_10k < 5.0 and not has_marker:
         dens: PracticalDensity = "low"
-    elif per_10k > 22.0 or has_marker:
+    elif per_10k > 19.0 or has_marker:
         dens = "high"
     else:
         dens = "medium"
 
-    pse = bool(has_exercise_material or per_10k >= 8.0)
+    pse = bool(has_exercise_material or per_10k >= 7.0)
     return has_exercise_material, dens, pse
 
 

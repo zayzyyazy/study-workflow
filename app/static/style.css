@@ -970,6 +970,18 @@ button:disabled {
   border-radius: 8px;
   padding: 0.85rem 1rem;
 }
+/* Tighter reading width for orientation + revision (discourage long generic blocks) */
+.generated-materials .gen-section-quick-overview .md-output p {
+  max-width: 68ch;
+}
+.generated-materials .gen-section-topic-map .md-output p {
+  max-width: 70ch;
+}
+.generated-materials .gen-section-revision-sheet .md-output p {
+  max-width: 62ch;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
 .generated-materials .gen-section-examples-and-solutions {
   background: #fff;
   border-left: 3px solid #cbd5e1;
