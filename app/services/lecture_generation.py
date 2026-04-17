@@ -205,6 +205,95 @@ def _artifact_technical_addon(a: LectureAnalysis, step: str) -> str:
     return "\n\nAdditional requirements for this output:\n" + "\n".join(bullets_en)
 
 
+def _analysis_signal_lines(a: LectureAnalysis) -> str:
+    """Extra deterministic cues for the system prompt (both languages)."""
+    if a.detected_language == "de":
+        g = a.source_grounding_strength
+        tg = a.topic_granularity
+        fd = a.formal_density
+        cd = a.conceptual_density
+        pd = a.practical_density
+        g_lab = {"low": "dünne/kurze Quelle — Ausgabe bewusst eng halten", "medium": "mittel", "high": "umfangreiche/strukturierte Quelle — nah an Definitionen/Beispielen bleiben"}
+        tg_lab = {
+            "coarse": "wenig Zwischenüberschriften — keine künstliche Feinaufteilung erzwingen",
+            "medium": "mittlere Struktur",
+            "fine": "viele Überschritten/Blöcke — präzise Unterthemen statt breiter Schirmbegriffe",
+        }
+        fd_lab = {"low": "wenig Formalismus", "medium": "mittlere Formalität", "high": "stark formal/beweis-/symbolnah"}
+        cd_lab = {"low": "weniger Definitions-/Distinktionsdichte", "medium": "mittlere Begriffsdichte", "high": "definitions- und unterscheidungsreich"}
+        return (
+            f"Heuristiken (nur Steuerung, nichts erfinden): **Quellen-Verankerung** — {g_lab.get(g, g)}; "
+            f"**Themen-Granularität** — {tg_lab.get(tg, tg)}; **Formalitätsgrad** — {fd_lab.get(fd, fd)}; "
+            f"**Begriffsdichte** — {cd_lab.get(cd, cd)}; **Übungs-/Aufgabenanteil** — **{pd}**."
+        )
+    g = a.source_grounding_strength
+    tg = a.topic_granularity
+    fd = a.formal_density
+    cd = a.conceptual_density
+    pd = a.practical_density
+    g_lab = {
+        "low": "thin/short source — keep outputs narrow",
+        "medium": "medium",
+        "high": "long/structured source — stay close to definitions and examples",
+    }
+    tg_lab = {
+        "coarse": "few sub-headings — do not force fake fine structure",
+        "medium": "medium structure",
+        "fine": "many titled blocks — prefer precise subtopics over umbrella labels",
+    }
+    fd_lab = {"low": "low formalism", "medium": "medium formality", "high": "formal / proof- / symbol-heavy"}
+    cd_lab = {
+        "low": "lower definition/distinction density",
+        "medium": "medium conceptual density",
+        "high": "definition- and distinction-rich",
+    }
+    return (
+        f"Heuristics (steering only; invent nothing): **source anchoring** — {g_lab.get(g, g)}; "
+        f"**topic granularity** — {tg_lab.get(tg, tg)}; **formality** — {fd_lab.get(fd, fd)}; "
+        f"**conceptual density** — {cd_lab.get(cd, cd)}; **exercise/task density** — **{pd}**."
+    )
+
+
+def _strict_source_faithfulness(a: LectureAnalysis) -> str:
+    """Cross-cutting exam-prep / professor discipline (system prompt)."""
+    if a.detected_language == "de":
+        thin = ""
+        if a.source_grounding_strength == "low":
+            thin = (
+                "\n**Dünne Quelle:** Wenn wenig Text vorliegt, bleibt die Ausgabe **kurz und ehrlich schmal** — "
+                "**keine** Schein-Tiefe, keine ergänzenden Standardkapitel aus Allgemeinwissen.\n"
+            )
+        return (
+            "**Rolle: strenge:r Hochschul-Studienpartner:in — nur aus dem Material.**\n"
+            "- Nutze **ausschließlich** den Vorlesungstext und angehängte Übungs-/Tutoriumsdateien. "
+            "Kein Ausweichen auf allgemeines Lehrbuchwissen, wenn es **nicht** in der Quelle vorkommt oder sich nicht "
+            "sicher daraus ergibt.\n"
+            "- **Kein** „Feld erklären“, **kein** Blog-Artikel, **kein** motivierender Warmton — **sachlich, direkt, präzise**.\n"
+            "- **Prüfungs-/Lernnutzen** über **präzise, quellgestützte** Unterscheidungen und Regeln — nicht über breite Zusammenfassung.\n"
+            "- **Vollständigkeit** ist kein Ziel: **Nutzen** schlägt Umfang. Lieber **weniger** Text mit klaren Kanten.\n"
+            "- Kursweite Verbindungen nur, wenn die **Quelle** oder der **Kurskontext** sie trägt — keine Spekulation.\n"
+            "- Übungsmaterial **schärft** Relevanz und Fragetypen, **ersetzt** aber keine Definitionen aus der Vorlesung.\n"
+            + thin
+        )
+    thin_en = ""
+    if a.source_grounding_strength == "low":
+        thin_en = (
+            "\n**Thin source:** If little text is available, stay **short and honestly narrow** — "
+            "no fake depth, no generic textbook padding.\n"
+        )
+    return (
+        "**Role: strict university study partner — from the uploaded material only.**\n"
+        "- Use **only** the lecture text and attached exercise/tutorium sources. "
+        "Do **not** substitute general textbook knowledge unless it is **clearly** in the source or safely implied there.\n"
+        "- **No** discipline overview, **no** blog tone, **no** warm motivational voice — **neutral, direct, precise**.\n"
+        "- Exam prep value comes from **sharp, source-backed** distinctions and rules — not from broad summarization.\n"
+        "- **Completeness is not a goal:** **usefulness** beats length. Prefer **less** text with clear edges.\n"
+        "- Course-wide links only when the **source** or **course context** supports them — no speculation.\n"
+        "- Exercise sheets **sharpen** relevance and question types; they **do not** replace lecture definitions.\n"
+        + thin_en
+    )
+
+
 def _adaptation_summary(a: LectureAnalysis) -> str:
     """Human-readable heuristic summary for the system prompt (both languages)."""
     kind = a.lecture_kind
@@ -234,6 +323,7 @@ def _adaptation_summary(a: LectureAnalysis) -> str:
             lines.append(
                 "Es gibt Signale für **Übungs-/Aufgabenmaterial** — Themen aus Vorlesung **und** Übung stärker verknüpfen."
             )
+        lines.append(_analysis_signal_lines(a))
         return "\n".join(lines)
     kind_labels = {
         "organizational": "mostly organizational / admin",
@@ -257,6 +347,7 @@ def _adaptation_summary(a: LectureAnalysis) -> str:
         lines.append(
             "Signals for **exercise / worksheet material** — connect lecture topics with **practice patterns** more strongly."
         )
+    lines.append(_analysis_signal_lines(a))
     return "\n".join(lines)
 
 
@@ -276,6 +367,9 @@ def _anti_generic_rules(a: LectureAnalysis) -> str:
             "**5) Keine Wiederholung zwischen Abschnitten:** Quick Overview ≠ Mini-Fassung von Topic Map/Core Learning. "
             "Jeder Abschnitt hat **einen Job** — nicht dieselben Inhalte in anderem Satzbau.\n"
             "**6) Kürzer statt weicher:** Lieber **präzise und selektiv** als lang und höflich. Keine künstliche Vollständigkeit.\n"
+            "**7) Prüfungsnähe vor Breite:** Lieber **exakte, quellgestützte Unterscheidungen** als glatt polierte Überblicke.\n"
+            "**8) Kein „Belohnen“ von Vollständigkeit:** Lieber Lücken lassen als mit Allgemeinwissen auffüllen.\n"
+            "**9) Kein Füller für akademischen Schein:** Keine leeren Satzschleifen, die nur seriös klingen.\n"
             "Zusätzlich: Glossar-Definitionen **nicht** in jedem Abschnitt wiederholen; **einmal klar, dann vernetzen**. "
             "Gleich lange, glatt polierte Absätze für jedes Thema vermeiden — **Priorität sichtbar machen**."
         )
@@ -292,6 +386,9 @@ def _anti_generic_rules(a: LectureAnalysis) -> str:
         "**5) No repetition across sections:** Quick Overview must not pre-summarize Topic Map / Core Learning. "
         "Each section has a **distinct job** — not the same points rephrased.\n"
         "**6) Prefer dense over polite:** **Selective and sharp** beats long and safe. No filler to sound complete.\n"
+        "**7) Exam usefulness over breadth:** Prefer **exact, source-backed distinctions** over polished overviews.\n"
+        "**8) Do not reward completeness:** Better to leave gaps than pad with general knowledge.\n"
+        "**9) No filler for academic tone:** No empty sentences that only sound serious.\n"
         "Also: **define once**, then reuse; avoid equally polished paragraphs for every topic — **show priority**."
     )
 
@@ -303,6 +400,7 @@ def _scope_and_topic_rules(a: LectureAnalysis) -> str:
             "Bezug & Originalität (verbindlich):\n"
             "- Formulierungen und Schwerpunkte müssen **erkennbar zu genau dieser Vorlesung** passen — "
             "nicht wie ein generisches Fachbuch oder ein „freundlicher Blog“.\n"
+            "- **Nur Quelle:** Kein Ausweiten auf das Fachgebiet, keine „gesamter Kurs“-Narrative, wenn die Einheit das nicht trägt.\n"
             "- **Kurs- und Themenabhängigkeit:** Begriffe, Beispiele und Gewichtung aus der **Quelle** ableiten; "
             "keine austauschbare Standard-Erklärung.\n"
             "- **Rhythmus und Schärfe** an die Vorlesung anpassen — nicht jede Einheit gleich lang, gleich weich, gleich „balanced“.\n"
@@ -313,6 +411,7 @@ def _scope_and_topic_rules(a: LectureAnalysis) -> str:
     return (
         "Scope & originality (mandatory):\n"
         "- Wording must **clearly fit this specific lecture** — not a generic textbook or a soft educational blog post.\n"
+        "- **Source scope only:** Do not broaden into the whole discipline or invent whole-course narratives the unit does not support.\n"
         "- **Course/topic dependence:** derive terms, examples, and weighting from the **source** only.\n"
         "- **Vary sharpness and length** — not every subsection equally long, equally polite, or equally “balanced”.\n"
         "- **Distinct section jobs (no duplication):** Quick Overview = **orientation**; Topic Map = **selective structure**; "
@@ -443,6 +542,36 @@ def _topic_map_depth_calibration(a: LectureAnalysis) -> str:
         "\nDepth scores: use the **full 1–10 range**; avoid clustering everything around **5–6** — "
         "use **repetition, formalization, and downstream dependencies**."
     )
+
+
+def _topic_map_granularity_hint(a: LectureAnalysis) -> str:
+    """Steer umbrella vs precise topic labels from heuristics."""
+    tg = a.topic_granularity
+    if a.detected_language == "de":
+        if tg == "fine":
+            return (
+                "\n**Präzision:** Die Quelle wirkt **in Unterkapitel gegliedert** — Topic-Map-Namen **konkret** wählen "
+                "(prüfungsrelevante **Untereinheiten**, typische Verwechslungen), **nicht** nur große Schirmbegriffe."
+            )
+        if tg == "coarse":
+            return (
+                "\n**Präzision:** Wenig Zwischenüberschriften — **Themen aus dem Text** ableiten, "
+                "**keine** künstliche Feinzerlegung erfinden; trotzdem **präzise benennen**, was die Quelle wirklich macht."
+            )
+        return (
+            "\n**Präzision:** Lieber **prüfungsrelevante Konzept-Einheiten** als breite Marketing-Outline-Labels."
+        )
+    if tg == "fine":
+        return (
+            "\n**Precision:** The source looks **finely structured** — prefer **concrete** topic names "
+            "(exam-relevant **sub-units**, typical confusions), not only umbrella labels."
+        )
+    if tg == "coarse":
+        return (
+            "\n**Precision:** Few sub-headings — derive topics **from the text**, do not invent fake fine structure; "
+            "still name **precisely** what the source actually does."
+        )
+    return "\n**Precision:** Prefer **exam-relevant concept units** over broad brochure-style labels."
 
 
 def _topic_map_kind_focus(a: LectureAnalysis) -> str:
@@ -624,7 +753,8 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
         if k == "conceptual":
             return (
                 "\n\n**Ton (nur umsetzen):** **Intuition, Begriffsnetz, Zusammenhänge** — "
-                "Formeln nur wenn die Quelle sie wirklich braucht. **Absätze dominieren; Bullets nur punktuell.**"
+                "Formeln nur wenn die Quelle sie wirklich braucht. **Keine** breite Philosophie oder Feldgeschichte erfinden — "
+                "nur was die Quelle trägt. **Absätze dominieren; Bullets nur punktuell.**"
             )
         if k == "proof_heavy":
             return (
@@ -656,7 +786,8 @@ def _core_learning_structure_addon(a: LectureAnalysis) -> str:
     if k == "conceptual":
         return (
             "\n\n**Emphasis (weave in; do not print as a heading):** **intuition, concept web, relationships** — "
-            "formulas only when the source truly needs them. **Paragraphs first; bullets only where they help.**"
+            "formulas only when the source truly needs them. **No** broad philosophy or field history unless the source does — "
+            "**Paragraphs first; bullets only where they help.**"
         )
     if k == "proof_heavy":
         return (
@@ -688,6 +819,8 @@ def _core_learning_prose_instructions(a: LectureAnalysis) -> str:
             )
         return (
             "**Sichtbarer Text — wie ein:e gute:r Dozent:in (verbindlich):**\n"
+            "- **Ton:** sachlich, akademisch, direkt — **nicht** warm, nicht überhilfsbereit, kein „freundlicher Erklärartikel“ "
+            "und kein glattes Marketing mit Bildungsvokabular.\n"
             "- Nach `## Core Learning` **zuerst** ein kurzes **Einleitungsstück** (1–2 Absätze **ohne** eigene ###-Überschrift): "
             "Was ist der rote Faden? Was soll ich mir **wirklich** merken? Wie soll ich die Einheit **lesen**?\n"
             "- Danach **###** mit **inhaltsreichen, vorlesungsnahen Titeln** (z. B. „Wahrnehmung als Filterprozess“, "
@@ -716,6 +849,7 @@ def _core_learning_prose_instructions(a: LectureAnalysis) -> str:
         org_en = "\n\n**Organizational lecture:** **short and factual** — no fake depth."
     return (
         "**Visible output — like a strong lecturer (mandatory):**\n"
+        "- **Tone:** neutral, academic, direct — **not** warm, not over-helpful, not a polished “educational article” voice.\n"
         "- After `## Core Learning`, start with a **short opening** (1–2 paragraphs **without** its own ### heading): "
         "the thread of the lecture, what understanding to build, how to read the rest.\n"
         "- Then **###** headings with **substantive, lecture-specific titles** (e.g. why X matters for Y here) — "
@@ -787,8 +921,9 @@ def _revision_kind_addon(a: LectureAnalysis) -> str:
 def _system_prompt(a: LectureAnalysis) -> str:
     if a.detected_language == "de":
         base = (
-            "Du bist ein **strenger, selektiver Lern-Tutor** — kein höflicher Zusammenfasser. "
-            "Priorisiere was in **dieser** Vorlesung wirklich zählt; verschwende keine Worte auf Offensichtliches oder "
+            "Du bist ein **strenger, universitätsnaher Studienpartner** — **nur** aus dem hochgeladenen Material. "
+            "**Kein** freundlicher Überblicks-Generator, **kein** Blog-Ton, **keine** weiche Motivation. "
+            "Priorisiere was in **dieser** Einheit wirklich zählt; verschwende keine Worte auf Offensichtliches oder "
             "generisches Fachbuchgelaber. "
             "Zeige **wie Begriffe zusammenhängen** (was muss zuerst sitzen), **typische Fehlvorstellungen** und **wie man denkt** — "
             "natürlich im Text, **ohne** Meta-Überschriften wie „Abhängigkeiten“ oder „Gewichtung“ (besonders wo Übungsmaterial existiert). "
@@ -809,8 +944,9 @@ def _system_prompt(a: LectureAnalysis) -> str:
         )
     else:
         base = (
-            "You are a **sharp, selective teaching assistant** — not a polite summarizer. "
-            "Prioritize what matters in **this** lecture; do not waste words on obvious points or generic textbook prose. "
+            "You are a **strict university-level study partner** — **only** from the uploaded material. "
+            "**Not** a friendly overview generator, **not** a blog voice, **not** warm motivational filler. "
+            "Prioritize what matters in **this** unit; do not waste words on obvious points or generic textbook prose. "
             "Show **how ideas build on each other**, **common confusions**, and **how to think** — in natural prose, "
             "**not** with meta-headings like “Dependencies” or “Weighting” (especially when exercise material exists). "
             "Use Markdown ##/###, lists sparingly, **bold** only for real anchors. "
@@ -833,6 +969,8 @@ def _system_prompt(a: LectureAnalysis) -> str:
         + "\n\n"
         + analysis
         + "\n\n"
+        + _strict_source_faithfulness(a)
+        + "\n\n"
         + _anti_generic_rules(a)
         + "\n\n"
         + _scope_and_topic_rules(a)
@@ -850,15 +988,16 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Quick Overview** — **kurze, scharfe Orientierung** (kein Mini-Fassung aller folgenden Abschnitte).\n\n"
-            "Beantworte **prägnant** und **vorlesungsspezifisch**:\n"
-            "- **Zentrale Frage / Problemstellung:** Worauf zielt die Einheit (nicht „das Thema allgemein“)?\n"
-            "- **Was soll die Vorlesung erreichen / etablieren?**\n"
-            "- **Warum im Kurs genau hier** — Bezug nur wenn aus Quelle/Kontext sicher?\n"
-            "- **Worauf achten** beim Lesen der restlichen Materialien?\n\n"
+            "Erstelle **Quick Overview** — **sehr kurze, scharfe Orientierung** nur aus der Quelle (kein Mini-Fassung "
+            "von Topic Map / Core Learning).\n\n"
+            "Beantworte **knapp** und **vorlesungsspezifisch**:\n"
+            "- **Worum geht es in dieser Einheit?** (nicht „das Fachgebiet allgemein“)\n"
+            "- **Was ist die zentrale Frage / der Kernkonflikt / das Lernziel** laut Material?\n"
+            "- **Worauf achten** beim Lesen der übrigen Abschnitte?\n\n"
             "Format:\n"
-            "- **4–6** knappe Bullets **oder** sehr kurze Absätze — **Weniger Worte, mehr Kanten**.\n"
-            "- **Kein** motivierender Fülltext, **kein** Vorgriff auf Topic Map / Core Learning, **keine** Definitionen/Beispiele.\n"
+            "- **3–5** knappe Bullets **oder** sehr kurze Absätze — **so wenig wie möglich**, **maximal quellnah**.\n"
+            "- **Kein** motivierender Fülltext, **kein** breiter Überblick über das Thema, **kein** Vorgriff auf Topic Map / "
+            "Core Learning, **keine** Definitionen/Beispiele.\n"
             "- Jeder Satz muss sich auf **diese** Vorlesung beziehen — sonst streichen.\n\n"
             "Oberste Überschrift exakt: ## Quick Overview"
         )
@@ -869,15 +1008,16 @@ def _prompt_quick_overview(a: LectureAnalysis) -> tuple[str, str]:
         )
     else:
         extra = (
-            "Produce **Quick Overview** — **short, sharp orientation** (not a mini-summary of later sections).\n\n"
+            "Produce **Quick Overview** — **very short, sharp orientation** from the source only (not a mini-summary of "
+            "Topic Map / Core Learning).\n\n"
             "Answer **tightly** and **lecture-specifically**:\n"
-            "- **Central question / problem:** What is this unit actually trying to do?\n"
-            "- **What should the lecture establish?**\n"
-            "- **Why here in the course** — only if safely grounded in the source/context.\n"
-            "- **What to watch for** when reading the rest?\n\n"
+            "- **What is this unit about?** (not “the field in general”)\n"
+            "- **Central question / core tension / learning goal** as the material states it.\n"
+            "- **What to watch for** when reading the rest.\n\n"
             "Format:\n"
-            "- **4–6** tight bullets **or** very short paragraphs — **fewer words, more edge**.\n"
-            "- No motivational filler, **no** preview of Topic Map / Core Learning, **no** definitions or worked examples.\n"
+            "- **3–5** tight bullets **or** very short paragraphs — **minimal length**, **maximally source-faithful**.\n"
+            "- No motivational filler, **no** broad topic overview, **no** preview of Topic Map / Core Learning, "
+            "**no** definitions or worked examples.\n"
             "- Every sentence must attach to **this** lecture — otherwise cut.\n\n"
             "Top heading must be exactly: ## Quick Overview"
         )
@@ -912,8 +1052,9 @@ def _prompt_topic_map(
 
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Topic Map** — **selektive** Strukturkarte (kein Glossar-Dump).\n\n"
-            "Ziel: Nur **tragende** Bausteine und **klare** Tiefe — weniger Einträge, dafür schärfere Scores.\n\n"
+            "Erstelle **Topic Map** — **selektive** Strukturkarte (kein Glossar-Dump, kein Kursprospekt).\n\n"
+            "Ziel: **prüfungs- und vorlesungsnahe Konzept-Einheiten** — was die Einheit **wirklich** herstellt; "
+            "weniger Einträge, dafür **präzisere** Namen und **aussagekräftigere** Tiefenscores.\n\n"
             "Wichtig:\n"
             "- **Ca. 4–12** Themen — **lieber weniger** als viele gleichwertige Labels. Rand-/Nebenthemen: **weglassen** "
             "oder maximal **ein** kurzer Eintrag mit niedrigem Score.\n"
@@ -942,13 +1083,15 @@ def _prompt_topic_map(
             + _artifact_technical_addon(a, "topic_map")
             + _topic_map_depth_calibration(a)
             + _topic_map_kind_focus(a)
+            + _topic_map_granularity_hint(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "topic_map")
         )
     else:
         extra = (
-            "Produce **Topic Map** — a **selective** structural map (not a glossary dump).\n\n"
-            "Goal: **fewer, sharper** entries with meaningful depth scores — not many equally weighted labels.\n\n"
+            "Produce **Topic Map** — a **selective** structural map (not a glossary dump or course brochure).\n\n"
+            "Goal: **exam- and lecture-faithful concept units** — what this unit **actually** builds; fewer entries, "
+            "**more precise** names and **meaningful** depth scores.\n\n"
             "Rules:\n"
             "- **About 4–12** topics — **prefer fewer** over many similar entries. Minor/aside topics: **omit** or at most "
             "**one** short entry with a low score.\n"
@@ -977,6 +1120,7 @@ def _prompt_topic_map(
             + _artifact_technical_addon(a, "topic_map")
             + _topic_map_depth_calibration(a)
             + _topic_map_kind_focus(a)
+            + _topic_map_granularity_hint(a)
             + _example_policy_line(a)
             + _exercise_application_addon(a, "topic_map")
         )
@@ -1045,7 +1189,8 @@ def _prompt_core_learning(
             "- Nicht jedes ### gleich lang — **Zentrales ausführlich**, Rand kurz (ohne das laut zu benennen).\n"
             "- Topic Map nicht als Glossar wiederholen; **hier lehren**.\n"
             "- Quick Overview nicht wiederholen.\n"
-            "- Nur Vorlesungsinhalt; keine erfundene Erweiterung.\n"
+            "- **Nur** Inhalt aus der hochgeladenen Quelle; **keine** allgemein-bekannten Zusatzkapitel, **keine** „Standardvorlesung“ "
+            "über das Fachgebiet.\n"
             "- Merklisten → Revision Sheet, nicht hier."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
@@ -1073,7 +1218,8 @@ def _prompt_core_learning(
             "- Not every ### equal length — **deep where central**, brief on side material (without announcing that).\n"
             "- Do not repeat the Topic Map as a glossary; **teach** here.\n"
             "- Do not repeat Quick Overview.\n"
-            "- Lecture-grounded only.\n"
+            "- **Only** content supported by the uploaded source — **no** generic textbook chapters, **no** “standard course” "
+            "padding beyond the material.\n"
             "- Memorize lists → Revision Sheet, not here."
             + map_block
             + _artifact_technical_addon(a, "core_learning")
@@ -1088,15 +1234,16 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
     sys = _system_prompt(a)
     if a.detected_language == "de":
         extra = (
-            "Erstelle **Revision Sheet** — **kompakte** Merk- und Prüfungsseite (**keine** zweite Erklärphilosophie).\n\n"
+            "Erstelle **Revision Sheet** — **kompakte** Merk- und **prüfungsnahe** Seite (**keine** zweite Erklärphilosophie).\n\n"
             "Aufbau:\n"
             "- **Auswendig lernen**: nur was die Vorlesung **wirklich** einfordert — Formeln, Symbole, Regeln, Fakten.\n"
             "- **Konzeptuell verstehen**: Ideen, die ich **kurz** erklären können muss — **ohne** ausufernde Prosa.\n\n"
             "Regeln:\n"
+            "- **Priorität:** **Unterscheidungen, Definitionen, Regeln, typische Fragetypen/Fehlmuster** — alles **quellgestützt**.\n"
             "- **Selektiv und kurz** — lieber wenige harte Punkte als lange Listen.\n"
             "- **Keine** ausführlichen Erklärungen (→ Core Learning); nur **Stichworte, Checks, typische Fallen**.\n"
             "- Typische **Frage-/Fehlermuster** und **Unterscheidungen** wenn Übungsmaterial nahelegt.\n"
-            "- Keine neuen Themen.\n"
+            "- Keine neuen Themen; **kein** allgemeines Fachwissen ergänzen.\n"
             "- Bullets / Mini-Tabellen; **dichte** Zeilen.\n\n"
             "Oberste Überschrift exakt: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")
@@ -1106,15 +1253,16 @@ def _prompt_revision_sheet(a: LectureAnalysis) -> tuple[str, str]:
         )
     else:
         extra = (
-            "Produce a **Revision Sheet** — **compact** cram sheet (**not** a second explainer).\n\n"
+            "Produce a **Revision Sheet** — **compact**, **exam-faithful** cram sheet (**not** a second explainer).\n\n"
             "Structure:\n"
             "- **Memorize**: only what the lecture **actually** demands — rules, formulas, symbols, facts.\n"
             "- **Understand conceptually**: ideas I can explain **briefly** — **no** essay prose.\n\n"
             "Rules:\n"
+            "- **Priority:** **distinctions, definitions, rules, typical question types / failure modes** — all **source-backed**.\n"
             "- **Selective and short** — fewer hard hits beat long lists.\n"
             "- **No** long explanations (→ Core Learning); **keywords, checks, typical traps** only.\n"
             "- If exercises suggest it: **question types**, **distinctions**, **common mistakes**.\n"
-            "- No new material.\n"
+            "- No new material; **do not** pad with general-domain knowledge.\n"
             "- Bullets / compact tables; **tight** lines.\n\n"
             "Top heading must be exactly: ## Revision Sheet"
             + _artifact_technical_addon(a, "revision_sheet")

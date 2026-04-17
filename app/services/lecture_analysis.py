@@ -24,6 +24,10 @@ LectureKind = Literal[
     "general",
 ]
 DepthBand = Literal["light", "medium", "dense"]
+SourceGroundingStrength = Literal["low", "medium", "high"]
+TopicGranularity = Literal["coarse", "medium", "fine"]
+FormalDensity = Literal["low", "medium", "high"]
+ConceptualDensity = Literal["low", "medium", "high"]
 
 # Common function words (small sets — enough to bias de vs en on lecture prose)
 _GERMAN_HINTS = frozenset(
@@ -195,6 +199,8 @@ _VALID_KINDS = frozenset(
     }
 )
 _VALID_DEPTH = frozenset({"light", "medium", "dense"})
+_VALID_GROUND = frozenset({"low", "medium", "high"})
+_VALID_GRANULARITY = frozenset({"coarse", "medium", "fine"})
 PracticalDensity = Literal["low", "medium", "high"]
 
 # Problem-solving / exercise-style wording (combined text may include "## Source:" exercise sheets)
@@ -228,6 +234,10 @@ class LectureAnalysis:
     has_exercise_material: bool
     practical_density: PracticalDensity
     problem_solving_emphasis: bool
+    source_grounding_strength: SourceGroundingStrength
+    topic_granularity: TopicGranularity
+    formal_density: FormalDensity
+    conceptual_density: ConceptualDensity
 
     def to_meta_dict(self) -> dict[str, Any]:
         return {
@@ -243,6 +253,10 @@ class LectureAnalysis:
             "has_exercise_material": self.has_exercise_material,
             "practical_density": self.practical_density,
             "problem_solving_emphasis": self.problem_solving_emphasis,
+            "source_grounding_strength": self.source_grounding_strength,
+            "topic_granularity": self.topic_granularity,
+            "formal_density": self.formal_density,
+            "conceptual_density": self.conceptual_density,
             "analysis_updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -394,6 +408,58 @@ def _classify_lecture_kind(
     return "general", False, False
 
 
+def _structural_signals(
+    sample: str,
+    *,
+    math_s: float,
+    proof_hits: float,
+    def_hits: float,
+    heading_lines: int,
+) -> tuple[SourceGroundingStrength, TopicGranularity, FormalDensity, ConceptualDensity]:
+    """
+    Deterministic cues for grounding, topic structure, and formality — used in prompts only.
+    """
+    n = max(len(sample), 1)
+    per10k = n / 10_000.0
+    math_p10 = math_s / per10k
+    proof_p10 = proof_hits / per10k
+    def_p10 = def_hits / per10k
+    h = heading_lines
+    hp10 = h / per10k
+
+    # How much structure/text we have to stay faithful to (thin source → narrow output)
+    if n < 3500 or (h < 3 and n < 9000):
+        sgs: SourceGroundingStrength = "low"
+    elif n > 16_000 and h >= 9:
+        sgs = "high"
+    else:
+        sgs = "medium"
+
+    # Fine = many titled chunks / definition-rich; coarse = long text, few headings (broad slides)
+    if h >= 10 or (h >= 7 and hp10 >= 12):
+        tg: TopicGranularity = "fine"
+    elif h <= 4 and n > 7000:
+        tg = "coarse"
+    else:
+        tg = "medium"
+
+    if math_p10 > 11.0 or proof_p10 > 7.0:
+        fd: FormalDensity = "high"
+    elif math_p10 < 2.5 and proof_p10 < 2.0:
+        fd = "low"
+    else:
+        fd = "medium"
+
+    if def_p10 > 22.0:
+        cd: ConceptualDensity = "high"
+    elif def_p10 < 7.0:
+        cd = "low"
+    else:
+        cd = "medium"
+
+    return sgs, tg, fd, cd
+
+
 def _practical_exercise_signals(sample: str) -> tuple[bool, PracticalDensity, bool]:
     """
     Detect exercise sheets / task-heavy combined sources.
@@ -446,11 +512,15 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
     )
     depth = _depth_band(sample, ms, heading_lines)
     has_ex, pract_dens, pse = _practical_exercise_signals(sample)
+    sgs, tgran, fden, cden = _structural_signals(
+        sample, math_s=ms, proof_hits=proof_hits, def_hits=def_hits, heading_lines=heading_lines
+    )
 
     notes = (
         f"heuristic math_score={ms:.1f} code_score={cs:.1f} org={org_hits:.1f} proof={proof_hits:.1f} "
         f"def={def_hits:.1f} ex={ex_hits:.1f} headings={heading_lines} kind={kind} depth={depth} "
-        f"exercise_material={has_ex} practical={pract_dens} pse={pse}"
+        f"exercise_material={has_ex} practical={pract_dens} pse={pse} "
+        f"grounding={sgs} topic_gran={tgran} formal={fden} conceptual={cden}"
     )
     return LectureAnalysis(
         detected_language=lang,
@@ -465,6 +535,10 @@ def analyze_extracted_text(text: str) -> LectureAnalysis:
         has_exercise_material=has_ex,
         practical_density=pract_dens,
         problem_solving_emphasis=pse,
+        source_grounding_strength=sgs,
+        topic_granularity=tgran,
+        formal_density=fden,
+        conceptual_density=cden,
     )
 
 
@@ -489,6 +563,18 @@ def analysis_from_meta(meta: dict[str, Any]) -> LectureAnalysis | None:
         pd = block.get("practical_density", "medium")
         if pd not in ("low", "medium", "high"):
             pd = "medium"
+        sgs = block.get("source_grounding_strength", "medium")
+        if sgs not in _VALID_GROUND:
+            sgs = "medium"
+        tgr = block.get("topic_granularity", "medium")
+        if tgr not in _VALID_GRANULARITY:
+            tgr = "medium"
+        fd = block.get("formal_density", "medium")
+        if fd not in _VALID_GROUND:
+            fd = "medium"
+        cd = block.get("conceptual_density", "medium")
+        if cd not in _VALID_GROUND:
+            cd = "medium"
         return LectureAnalysis(
             detected_language=lang,
             content_profile=prof,
@@ -502,6 +588,10 @@ def analysis_from_meta(meta: dict[str, Any]) -> LectureAnalysis | None:
             has_exercise_material=bool(block.get("has_exercise_material")),
             practical_density=pd,  # type: ignore[arg-type]
             problem_solving_emphasis=bool(block.get("problem_solving_emphasis")),
+            source_grounding_strength=sgs,  # type: ignore[arg-type]
+            topic_granularity=tgr,  # type: ignore[arg-type]
+            formal_density=fd,  # type: ignore[arg-type]
+            conceptual_density=cd,  # type: ignore[arg-type]
         )
     except (TypeError, ValueError):
         return None
