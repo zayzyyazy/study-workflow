@@ -100,6 +100,11 @@ _BOILERPLATE_SUBSTRINGS: Final = frozenset(
         "inhalt dieser einheit",
         "checkliste",
         "check list",
+        "topic lessons",
+        "topic-lektionen",
+        "inhaltsverzeichnis",
+        "topic roadmap",
+        "themen-roadmap",
     }
 )
 

@@ -39,20 +39,23 @@ def resolve_existing_output(outputs_dir: Path, artifact_type: str) -> tuple[Opti
     return None, names[0]
 
 
-def _strip_duplicate_heading(body: str, heading: str) -> str:
+def _strip_duplicate_heading(body: str, heading: str, *, also: tuple[str, ...] = ()) -> str:
     """
     Remove a top-level ## heading from body if it duplicates the section label
     we are about to write into the study pack.
     Only removes the very first ## line if it matches (case-insensitive).
+    `also` lists alternate H2 titles from older generations (e.g. Core Learning → Topic Lessons).
     """
     lines = body.splitlines()
     if not lines:
         return body
     first = lines[0].strip()
-    # Match "## Heading Text" where the text equals the expected heading (loosely)
-    if first.startswith("## ") and first[3:].strip().lower() == heading.lower():
-        rest = "\n".join(lines[1:]).lstrip("\n")
-        return rest
+    if not first.startswith("## "):
+        return body
+    inner = first[3:].strip().lower()
+    targets = {heading.lower(), *(x.lower() for x in also)}
+    if inner in targets:
+        return "\n".join(lines[1:]).lstrip("\n")
     return body
 
 
@@ -62,17 +65,23 @@ def build_study_pack_markdown(outputs_dir: Path) -> str:
     Supports new (01-04) and legacy output structures. Skips missing sections.
     Removes duplicate top-level section headings to avoid "## Quick Overview" twice.
     """
-    sections: list[tuple[tuple[str, ...], str]] = [
-        (("01_quick_overview.md", "02_summary.md"), "Quick Overview"),
-        (("02_topic_map.md", "02_glossary.md", "01_glossary.md"), "Topic Map"),
+    # (file candidates, study-pack section title, optional legacy H2 titles to strip from file body)
+    sections: list[tuple[tuple[str, ...], str, tuple[str, ...]]] = [
+        (("01_quick_overview.md", "02_summary.md"), "Quick Overview", ()),
+        (
+            ("02_topic_map.md", "02_glossary.md", "01_glossary.md"),
+            "Topic Roadmap",
+            ("Topic Map", "Themen-Roadmap", "Kurzes Inhaltsverzeichnis"),
+        ),
         (
             ("03_core_learning.md", "03_teach_me.md", "02_teach_me.md", "03_topic_explanations.md"),
-            "Core Learning",
+            "Topic Lessons",
+            ("Core Learning", "Topic-Lektionen", "Topic Lessons"),
         ),
-        (("04_revision_sheet.md", "05_revision_sheet.md"), "Revision Sheet"),
+        (("04_revision_sheet.md", "05_revision_sheet.md"), "Revision Sheet", ()),
     ]
     chunks: list[str] = []
-    for candidates, title in sections:
+    for candidates, title, legacy_h2 in sections:
         p: Optional[Path] = None
         for fname in candidates:
             candidate = outputs_dir / fname
@@ -84,7 +93,7 @@ def build_study_pack_markdown(outputs_dir: Path) -> str:
         body = p.read_text(encoding="utf-8", errors="replace").strip()
         if not body:
             continue
-        body = _strip_duplicate_heading(body, title)
+        body = _strip_duplicate_heading(body, title, also=legacy_h2)
         chunks.append(f"\n\n---\n\n## {title}\n\n{body}")
     text = (
         "# Study Pack\n\n"

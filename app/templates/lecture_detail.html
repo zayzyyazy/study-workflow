@@ -26,13 +26,20 @@
   opacity: 0.3;
 }
 
-/* Core Learning: prominent heading */
+/* Topic Lessons (core_learning artifact): prominent heading + per-lesson blocks */
 .gen-section-core-learning > .gen-section-title {
   font-size: 1.25rem;
   font-weight: 700;
 }
 .gen-section-core-learning .md-output h3 {
   margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-border, #e8e8e8);
+}
+.gen-section-core-learning .md-output h4 {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--color-muted, #444);
 }
 
 /* Revision Sheet: visually lighter */
@@ -336,10 +343,10 @@
   <article class="gen-section gen-section-{{ sec.artifact_type | replace('_', '-') }}" id="gen-{{ sec.artifact_type }}">
     <h3 class="gen-section-title">{{ sec.title }} <span class="muted file-tag">{{ sec.filename }}</span></h3>
 
-    {# Sub-TOC for Core Learning (new structure) #}
+    {# Sub-TOC for Topic Lessons (artifact id core_learning, file 03_core_learning.md) #}
     {% if sec.artifact_type == "core_learning" %}
     <nav class="corelearning-subtoc" id="corelearning-subtoc" hidden>
-      <span class="corelearning-subtoc-label">Topics:</span>
+      <span class="corelearning-subtoc-label">Lessons:</span>
       <div class="corelearning-subtoc-links" id="corelearning-subtoc-links"></div>
     </nav>
     {% endif %}
@@ -484,7 +491,7 @@
   });
 })();
 
-// Sub-TOC for Core Learning (new structure)
+// Sub-TOC for Topic Lessons (### = each lesson)
 (function () {
   var root = document.getElementById("gen-content-core_learning");
   var toc = document.getElementById("corelearning-subtoc");

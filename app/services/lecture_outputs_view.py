@@ -11,8 +11,8 @@ from app.services.study_output_paths import resolve_existing_output
 
 SECTION_TITLES = {
     "quick_overview": "Quick Overview",
-    "topic_map": "Topic Map",
-    "core_learning": "Core Learning",
+    "topic_map": "Topic Roadmap",
+    "core_learning": "Topic Lessons",
     "revision_sheet": "Revision Sheet",
     "study_pack": "Study pack (single file)",
 }
