@@ -64,7 +64,7 @@ def build_home_dashboard() -> dict[str, Any]:
     focus = dash.get("focus_lines") or []
     focus = focus[:4]
 
-    connection_hints = lecture_links_service.home_connection_hints(5)
+    connection_hints = lecture_links_service.home_connection_hints(limit=5)
 
     return {
         "continue_lectures": continue_,

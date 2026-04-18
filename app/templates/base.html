@@ -23,9 +23,27 @@
   <footer class="site-footer">
     <p>Local-only · no cloud · C-lite</p>
   </footer>
+
+  <script type="application/json" id="mini-help-context-data">{{ (mini_help_context | default({})) | tojson }}</script>
+  <div class="mini-help" id="mini-help-root">
+    <button type="button" class="mini-help-fab" id="mini-help-fab" aria-expanded="false" aria-controls="mini-help-panel" title="Quick help (short questions)">?</button>
+    <div class="mini-help-panel" id="mini-help-panel" role="dialog" aria-label="Quick help" hidden>
+      <div class="mini-help-header">
+        <span class="mini-help-title">Quick help</span>
+        <button type="button" class="mini-help-close" aria-label="Close">&times;</button>
+      </div>
+      <p class="mini-help-lede muted">Short questions only. Does not rename or delete anything — use the page controls for that.</p>
+      <label class="mini-help-label" for="mini-help-input">Your question</label>
+      <textarea id="mini-help-input" class="mini-help-input" rows="2" maxlength="500" placeholder="e.g. What should I review before this lecture?"></textarea>
+      <button type="button" class="button button-secondary mini-help-send" id="mini-help-send">Send</button>
+      <div id="mini-help-out" class="mini-help-out" aria-live="polite"></div>
+    </div>
+  </div>
+
   <script defer src="{{ url_for('static', path='vendor/katex/katex.min.js') }}"></script>
   <script defer src="{{ url_for('static', path='vendor/katex/contrib/auto-render.min.js') }}"></script>
   <script defer src="{{ url_for('static', path='math-render.js') }}"></script>
+  <script defer src="{{ url_for('static', path='mini-help.js') }}"></script>
   {% block page_scripts %}{% endblock %}
 </body>
 </html>

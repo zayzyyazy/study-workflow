@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from app.config import APP_ROOT
 from app.services import course_service, lecture_service
 from app.services.course_delete import delete_course
+from app.services.mini_help_service import context_for_request
 from app.services.storage_view import enrich_lecture_rows_for_course_ui
 from app.services.bulk_generation_service import run_bulk_generate_ready_in_course
 from app.services.course_index_service import aggregate_course_concepts_filtered
@@ -106,6 +107,14 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "study_progress_states": STUDY_PROGRESS_STATES,
             "clear_concept_href": clear_concept_href,
             "clear_lecture_href": clear_lecture_href,
+            "mini_help_context": context_for_request(
+                request,
+                "course",
+                course_id=course_id,
+                course_name=course["name"],
+                lecture_count=total_lectures_in_course,
+                study_done_in_course=study_done_in_course,
+            ),
         },
     )
 

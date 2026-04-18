@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from app.config import APP_ROOT
 from app.services import course_service
 from app.services import lecture_upload
+from app.services.mini_help_service import context_for_request
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -24,6 +25,7 @@ def upload_form(request: Request, error: Optional[str] = None) -> HTMLResponse:
             "title": "Upload lecture",
             "courses": courses,
             "error": error,
+            "mini_help_context": context_for_request(request, "upload"),
         },
     )
 
@@ -50,6 +52,7 @@ async def upload_post(
                     "title": "Upload lecture",
                     "courses": courses,
                     "error": "Invalid course selection.",
+                    "mini_help_context": context_for_request(request, "upload"),
                 },
                 status_code=400,
             )
@@ -62,6 +65,7 @@ async def upload_post(
                 "title": "Upload lecture",
                 "courses": courses,
                 "error": "Select an existing course or enter a new course name.",
+                "mini_help_context": context_for_request(request, "upload"),
             },
             status_code=400,
         )
@@ -74,6 +78,7 @@ async def upload_post(
                 "title": "Upload lecture",
                 "courses": courses,
                 "error": "Please choose a file to upload.",
+                "mini_help_context": context_for_request(request, "upload"),
             },
             status_code=400,
         )
@@ -94,6 +99,7 @@ async def upload_post(
                 "title": "Upload lecture",
                 "courses": courses,
                 "error": str(e),
+                "mini_help_context": context_for_request(request, "upload"),
             },
             status_code=400,
         )
@@ -105,6 +111,7 @@ async def upload_post(
                 "title": "Upload lecture",
                 "courses": courses,
                 "error": f"Could not save file: {e}",
+                "mini_help_context": context_for_request(request, "upload"),
             },
             status_code=500,
         )

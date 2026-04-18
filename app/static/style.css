@@ -1979,6 +1979,132 @@ details.lecture-section--storage .lecture-collapsible-body .storage-dl {
   margin: 0;
 }
 
+/* --- Quick help (mini chat bar) --- */
+.mini-help {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.mini-help > * {
+  pointer-events: auto;
+}
+.mini-help-fab {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+}
+.mini-help-fab:hover {
+  background: #f0f4ff;
+  border-color: var(--accent);
+}
+.mini-help-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(2.5rem + 0.65rem);
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(70vh, 24rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.15);
+}
+.mini-help-panel[hidden] {
+  display: none !important;
+}
+.mini-help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+.mini-help-title {
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+.mini-help-close {
+  border: none;
+  background: transparent;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0 0.2rem;
+}
+.mini-help-close:hover {
+  color: var(--text);
+}
+.mini-help-lede {
+  font-size: 0.78rem;
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+.mini-help-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.mini-help-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 2.5rem;
+  max-height: 6rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  margin-bottom: 0.45rem;
+}
+.mini-help-send {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.mini-help-out {
+  flex: 1;
+  min-height: 2rem;
+  overflow-y: auto;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.mini-help-reply {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+.mini-help-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.82rem;
+}
+.mini-help-loading {
+  color: var(--muted);
+}
+
+@media print {
+  .mini-help {
+    display: none !important;
+  }
+}
+
 /* --- Narrow / half-screen (desktop split view with ChatGPT, etc.) --- */
 @media (max-width: 56rem) {
   .container {

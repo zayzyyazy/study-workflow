@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import course_service, home_dashboard_service, lecture_service
+from app.services.mini_help_service import context_for_request
 from app.services.storage_view import attach_disk_folder_names
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
@@ -33,6 +34,12 @@ def home(request: Request) -> HTMLResponse:
             "study_totals": study_totals,
             "starred_lectures": starred,
             "home_dash": home_dash,
+            "mini_help_context": context_for_request(
+                request,
+                "home",
+                study_done=study_totals.get("done"),
+                study_total=study_totals.get("total"),
+            ),
         },
     )
 

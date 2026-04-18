@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import course_service, planner_schedule_service, planner_service
+from app.services.mini_help_service import context_for_request
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -29,6 +30,11 @@ def planner_page(request: Request) -> HTMLResponse:
             "notice": notice,
             "error": err,
             "weekday_names": planner_service.WEEKDAY_NAMES_FORM,
+            "mini_help_context": context_for_request(
+                request,
+                "planner",
+                stats_line=str(dash.get("stats_line") or ""),
+            ),
         },
     )
 

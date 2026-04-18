@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from app.config import APP_ROOT
 from app.services import lecture_service
 from app.services.lecture_links_service import build_lecture_links
+from app.services.mini_help_service import context_for_request
 from app.services.concept_service import lecture_concepts_ui_context
 from app.services.lecture_delete import delete_lecture
 from app.services.lecture_extraction_actions import add_source_file, re_run_extraction, replace_source_file
@@ -110,6 +111,16 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
             "topic_deep_dive": td_ctx,
             "topic_deep_dive_slugs_json": topic_deep_dive_slugs_json,
             "lecture_links": lecture_links,
+            "mini_help_context": context_for_request(
+                request,
+                "lecture",
+                lecture_id=lecture_id,
+                lecture_title=lecture["title"],
+                course_id=lecture["course_id"],
+                course_name=lecture.get("course_name"),
+                study_progress=lecture.get("study_progress"),
+                status=lecture.get("status"),
+            ),
         },
     )
 
@@ -265,6 +276,13 @@ def confirm_delete(request: Request, lecture_id: int) -> HTMLResponse:
         {
             "title": f"Delete {lecture['title']}",
             "lecture": lecture,
+            "mini_help_context": context_for_request(
+                request,
+                "lecture_delete_confirm",
+                lecture_id=lecture_id,
+                lecture_title=lecture["title"],
+                course_name=lecture.get("course_name"),
+            ),
         },
     )
 
@@ -329,6 +347,13 @@ def study_pack_printable(request: Request, lecture_id: int) -> HTMLResponse:
             "body_html": body_html,
             "lecture": lecture,
             "lecture_id": lecture_id,
+            "mini_help_context": context_for_request(
+                request,
+                "study_pack_print",
+                lecture_id=lecture_id,
+                lecture_title=lecture["title"],
+                course_name=lecture.get("course_name"),
+            ),
         },
     )
 
@@ -377,6 +402,15 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
             "question_difficulties": topic_deep_dive_service.QUESTION_DIFFICULTIES,
             "notice": notice,
             "error": err_q,
+            "mini_help_context": context_for_request(
+                request,
+                "topic_deep_dive",
+                lecture_id=lecture_id,
+                lecture_title=lecture["title"],
+                course_name=lecture.get("course_name"),
+                topic_title=entry["title"],
+                topic_slug=topic_slug,
+            ),
         },
     )
 
@@ -488,6 +522,16 @@ def topic_subtopic_dive_page(request: Request, lecture_id: int, topic_slug: str,
             "has_content": bool(sub_md and sub_md.strip()),
             "notice": notice,
             "error": err_q,
+            "mini_help_context": context_for_request(
+                request,
+                "subtopic_deep_dive",
+                lecture_id=lecture_id,
+                lecture_title=lecture["title"],
+                topic_title=entry["title"],
+                topic_slug=topic_slug,
+                subtopic_title=stitle,
+                subslug=subslug,
+            ),
         },
     )
 
