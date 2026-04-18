@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
 from app.services import lecture_service
+from app.services.lecture_links_service import build_lecture_links
 from app.services.concept_service import lecture_concepts_ui_context
 from app.services.lecture_delete import delete_lecture
 from app.services.lecture_extraction_actions import add_source_file, re_run_extraction, replace_source_file
@@ -90,6 +91,7 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
 
     td_ctx = topic_deep_dive_service.build_lecture_page_context(lecture_id)
     topic_deep_dive_slugs_json = json.dumps(td_ctx.get("slug_by_title") or {})
+    lecture_links = build_lecture_links(lecture_id)
 
     return templates.TemplateResponse(
         request,
@@ -107,6 +109,7 @@ def lecture_detail(request: Request, lecture_id: int) -> HTMLResponse:
             "study_progress_states": lecture_service.STUDY_PROGRESS_STATES,
             "topic_deep_dive": td_ctx,
             "topic_deep_dive_slugs_json": topic_deep_dive_slugs_json,
+            "lecture_links": lecture_links,
         },
     )
 

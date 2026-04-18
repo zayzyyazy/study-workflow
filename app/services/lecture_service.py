@@ -172,6 +172,21 @@ def list_lectures_for_course(course_id: int) -> list[dict[str, Any]]:
         return [dict(row) for row in cur.fetchall()]
 
 
+def list_lectures_course_sequence(course_id: int) -> list[dict[str, Any]]:
+    """Same course, oldest-first (stable order for prev/next lecture links)."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
+            FROM lectures
+            WHERE course_id = ?
+            ORDER BY id ASC
+            """,
+            (course_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
 def get_lecture_by_id(lecture_id: int) -> Optional[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(

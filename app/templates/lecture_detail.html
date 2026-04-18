@@ -212,6 +212,47 @@
   border-color: var(--color-accent, #4a90d9);
   color: var(--color-accent, #4a90d9);
 }
+.topic-deep-dive-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
+}
+.lecture-links-strip {
+  margin: 0 0 1.25rem 0;
+  padding: 0.65rem 0.85rem;
+  background: var(--color-surface-subtle, #f4f6fa);
+  border: 1px solid var(--color-border, #e4e4e4);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+.lecture-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lecture-links-list li {
+  margin-bottom: 0.35rem;
+  line-height: 1.35;
+}
+.lecture-links-list li:last-child {
+  margin-bottom: 0;
+}
+.lecture-links-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-muted, #666);
+  margin-top: 0.08rem;
+}
+@media (max-width: 52rem) {
+  .lecture-title-row {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .lecture-workspace-header .lecture-title-row {
+    align-items: flex-start;
+  }
+}
 .topic-deep-dive-link {
   font-size: 0.78rem;
   margin-left: 0.45rem;
@@ -302,6 +343,20 @@
   </p>
   {% endif %}
 </header>
+
+{% set lecture_links = lecture_links | default({'lines': []}) %}
+{% if lecture_links.lines %}
+<aside class="lecture-links-strip" aria-label="Course connections">
+  <ul class="lecture-links-list">
+    {% for row in lecture_links.lines %}
+    <li>
+      <a href="{{ row.href }}">{{ row.text }}</a>
+      <span class="lecture-links-sub">{{ row.sub }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>
+{% endif %}
 
 <section class="lecture-section lecture-section--sources" aria-labelledby="sources-heading">
   <h2 id="sources-heading" class="section-heading section-heading--sub">Source files</h2>
@@ -422,6 +477,7 @@
     <p class="muted small-print topic-deep-dive-panel-lede">
       Focused study pages per roadmap topic — deeper than the overview. Priority ≥ 7 is highlighted as a good first choice.
     </p>
+    <div class="topic-deep-dive-table-wrap">
     <table class="topic-deep-dive-table">
       <thead>
         <tr>
@@ -451,6 +507,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   {% elif topic_deep_dive.error %}
   <p class="muted small-print">Topic deep dives: {{ topic_deep_dive.error }}</p>

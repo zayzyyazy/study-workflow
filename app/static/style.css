@@ -1978,3 +1978,40 @@ details.lecture-section--storage .lecture-collapsible-body .storage-dl {
 .course-tools-panel .inline-confirm {
   margin: 0;
 }
+
+/* --- Narrow / half-screen (desktop split view with ChatGPT, etc.) --- */
+@media (max-width: 56rem) {
+  .container {
+    padding: 1rem 1rem 2rem;
+    max-width: 100%;
+  }
+  .site-header {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+  }
+  .site-header nav a {
+    margin-left: 0;
+    margin-right: 0.85rem;
+  }
+  h1 {
+    font-size: 1.45rem;
+  }
+  h2 {
+    font-size: 1.05rem;
+  }
+  .workspace-home--simple .page-workspace-title,
+  .workspace-course .course-workspace-title {
+    font-size: 1.35rem;
+    line-height: 1.2;
+  }
+}
+@media (max-width: 40rem) {
+  .meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .brand {
+    font-size: 0.95rem;
+  }
+}

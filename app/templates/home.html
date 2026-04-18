@@ -47,6 +47,37 @@
   margin: 0 0 0.4rem;
 }
 .home-dash-wide ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
+.home-connection-hints {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.home-connection-hints-title {
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+.home-connection-hints-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+.home-connection-hints-list li {
+  margin-bottom: 0.35rem;
+  line-height: 1.35;
+}
+.home-connection-hints-list .sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.05rem;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -59,6 +90,7 @@
   'deep_dive_by_course': [],
   'planner_next': [],
   'planner_focus': [],
+  'connection_hints': [],
   'stats_line': ''
 }) %}
 <div class="workspace-home workspace-home--simple">
@@ -87,6 +119,20 @@
   <a class="button" href="/planner">Open planner</a>
   <a class="button button-secondary" href="/upload">Upload lecture</a>
 </div>
+
+{% if hd.connection_hints %}
+<section class="home-connection-hints" aria-labelledby="hd-conn">
+  <h2 id="hd-conn" class="home-connection-hints-title">Library links</h2>
+  <ul class="home-connection-hints-list">
+    {% for row in hd.connection_hints %}
+    <li>
+      <a href="{{ row.href }}">{{ row.text }}</a>
+      <span class="sub">{{ row.sub }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 <div class="home-dash-grid">
   <section class="home-dash-card" aria-labelledby="hd-continue">
