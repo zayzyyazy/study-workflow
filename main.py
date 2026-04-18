@@ -1,4 +1,7 @@
-"""FastAPI entry point for study_workflow_app."""
+"""FastAPI entry point for study_workflow_app.
+
+Single-user local app: no login, sessions, or multi-tenant routing (see README).
+"""
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles

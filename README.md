@@ -9,6 +9,7 @@ A separate **Electron** desktop wrapper (`studyai`) can launch the same FastAPI 
 ## What this project is
 
 - **FastAPI** + **Jinja2** + **SQLite** + on-disk files under `courses/`.
+- **Single-user, local only** — no login, signup, passwords, sessions, or auth middleware; one personal library in `data/` + `courses/`.
 - No accounts, no cloud storage — data stays on your computer.
 - **Optional AI**: study materials, topic deep dives, example questions, and subtopic deep dives call the OpenAI API when `OPENAI_API_KEY` is set.
 
