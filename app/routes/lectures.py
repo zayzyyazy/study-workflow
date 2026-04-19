@@ -7,9 +7,11 @@ from urllib.parse import quote, urlparse
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from app.config import APP_ROOT
 from app.services import lecture_service
+from app.services import topic_quiz_service
 from app.services.lecture_links_service import build_lecture_links
 from app.services.mini_help_service import context_for_request
 from app.services.concept_service import lecture_concepts_ui_context
@@ -30,6 +32,12 @@ templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
 
 PREVIEW_CHARS = 6000
+
+
+class QuizCheckBody(BaseModel):
+    difficulty: str
+    question_id: str
+    selected_index: int
 
 
 def _safe_redirect_target(request: Request, fallback: str) -> str:
@@ -386,6 +394,20 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
         qraw = topic_deep_dive_service.read_example_questions(root, topic_slug, d)
         questions_html[d] = markdown_to_lecture_html(qraw) if qraw and qraw.strip() else None
 
+    quizzes_redacted: dict[str, dict | None] = {}
+    for d in topic_deep_dive_service.QUESTION_DIFFICULTIES:
+        raw = topic_quiz_service.load_interactive_quiz(root, topic_slug, d)
+        quizzes_redacted[d] = topic_quiz_service.redact_quiz_for_client(raw) if raw else None
+
+    mistake_summary = topic_quiz_service.list_mistake_summary(lecture_id, topic_slug, 14)
+    mistake_summary_bad = [r for r in mistake_summary if int(r.get("wrong_count") or 0) > 0]
+
+    quiz_boot = {
+        "lectureId": lecture_id,
+        "topicSlug": topic_slug,
+        "quizzes": {d: quizzes_redacted[d] for d in topic_deep_dive_service.QUESTION_DIFFICULTIES if quizzes_redacted.get(d)},
+    }
+
     return templates.TemplateResponse(
         request,
         "topic_deep_dive.html",
@@ -400,6 +422,10 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
             "subtopics": subtopics,
             "questions_html": questions_html,
             "question_difficulties": topic_deep_dive_service.QUESTION_DIFFICULTIES,
+            "quizzes_redacted": quizzes_redacted,
+            "quiz_boot": quiz_boot,
+            "mistake_summary": mistake_summary,
+            "mistake_summary_bad": mistake_summary_bad,
             "notice": notice,
             "error": err_q,
             "mini_help_context": context_for_request(
@@ -412,6 +438,35 @@ def topic_deep_dive_page(request: Request, lecture_id: int, topic_slug: str) -> 
                 topic_slug=topic_slug,
             ),
         },
+    )
+
+
+@router.post("/lectures/{lecture_id}/topics/{topic_slug}/quiz/generate", response_model=None)
+def post_generate_interactive_quiz(
+    lecture_id: int,
+    topic_slug: str,
+    difficulty: str = Form(...),
+) -> RedirectResponse:
+    ok, msg = topic_quiz_service.run_generate_interactive_quiz(lecture_id, topic_slug, difficulty)
+    if ok:
+        return RedirectResponse(
+            url=f"/lectures/{lecture_id}/topics/{topic_slug}?notice={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/lectures/{lecture_id}/topics/{topic_slug}?error={quote(msg)}",
+        status_code=303,
+    )
+
+
+@router.post("/lectures/{lecture_id}/topics/{topic_slug}/quiz/check")
+def post_quiz_check(lecture_id: int, topic_slug: str, body: QuizCheckBody) -> dict:
+    return topic_quiz_service.check_answer(
+        lecture_id,
+        topic_slug,
+        body.difficulty,
+        body.question_id,
+        body.selected_index,
     )
 
 

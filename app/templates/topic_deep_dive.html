@@ -73,6 +73,32 @@
 .tdd-q-block h3 { font-size: 0.95rem; margin: 0 0 0.5rem; text-transform: capitalize; }
 .tdd-subtopics ul { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.92rem; }
 .tdd-subtopics a { font-weight: 500; }
+.tdd-iz-wrap { margin-top: 1.5rem; }
+.tdd-quiz-root { margin-top: 1rem; }
+.tdd-iz-nav { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+.tdd-iz-tab--active { outline: 2px solid var(--color-accent, #4a90d9); }
+.tdd-iz-stem { font-size: 0.95rem; margin: 0.5rem 0 0.75rem; line-height: 1.45; }
+.tdd-iz-options { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+.tdd-iz-opt { display: flex; align-items: flex-start; gap: 0.35rem; font-size: 0.9rem; cursor: pointer; }
+.tdd-iz-feedback-pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.65rem;
+  background: var(--color-surface-subtle, #f4f6fa);
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e4e4e4);
+}
+.tdd-iz-next { margin-top: 0.5rem; }
+.tdd-iz-score { font-weight: 600; font-size: 1rem; }
+.tdd-iz-missed { font-size: 0.88rem; margin: 0.35rem 0 0; padding-left: 1.2rem; }
+.tdd-mistake-strip { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border, #e8e8e8); }
+.tdd-mistake-h { font-size: 0.9rem; margin: 0 0 0.35rem; }
+.tdd-mistake-list { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--color-muted, #555); }
+.tdd-iz-err { color: #b91c1c; font-size: 0.88rem; }
 </style>
 {% endblock %}
 
@@ -132,6 +158,42 @@
     {% if not (questions_html.get('easy') or questions_html.get('medium') or questions_html.get('hard')) %}
     <p class="muted small-print" style="margin:0;">No question sets yet — choose a difficulty and generate.</p>
     {% endif %}
+  </section>
+
+  <section class="tdd-panel tdd-iz-wrap" aria-labelledby="tdd-iz-h">
+    <h2 id="tdd-iz-h">Interactive quiz</h2>
+    <p class="muted small-print tdd-panel-lede">
+      Ten on-demand questions with instant feedback. Generates only when you click — past misses inform later quizzes.
+    </p>
+    <form class="tdd-q-form" method="post" action="/lectures/{{ lecture_id }}/topics/{{ topic_slug }}/quiz/generate">
+      <label for="tdd-iz-diff">Difficulty</label>
+      <select id="tdd-iz-diff" name="difficulty" required>
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <button type="submit" class="button">Generate quiz</button>
+    </form>
+
+    {% if mistake_summary_bad %}
+    <div class="tdd-mistake-strip" id="tdd-quiz-server-mistakes">
+      <h3 class="tdd-mistake-h">Practice memory</h3>
+      <ul class="tdd-mistake-list">
+        {% for row in mistake_summary_bad %}
+        <li>
+          <strong>{{ row.concept_key }}</strong> — missed {{ row.wrong_count }}×
+          {% if row.subtopic_slug %}· revisit subtopic <em>{{ row.subtopic_slug }}</em>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div id="tdd-quiz-server-mistakes" hidden></div>
+    {% endif %}
+
+    <script type="application/json" id="tdd-quiz-bootstrap">{{ (quiz_boot | default({})) | tojson }}</script>
+    <div id="tdd-quiz-root" class="tdd-quiz-root" hidden></div>
+    <script defer src="{{ url_for('static', path='topic-quiz.js') }}"></script>
   </section>
 
   {% if subtopics %}

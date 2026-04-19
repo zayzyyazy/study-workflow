@@ -121,6 +121,33 @@ def _ensure_planner_schedule_table(conn: sqlite3.Connection) -> None:
     )
 
 
+def _ensure_topic_quiz_mistake_stats(conn: sqlite3.Connection) -> None:
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='topic_quiz_mistake_stats'"
+    )
+    if cur.fetchone() is not None:
+        return
+    conn.execute(
+        """
+        CREATE TABLE topic_quiz_mistake_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lecture_id INTEGER NOT NULL REFERENCES lectures(id) ON DELETE CASCADE,
+            topic_slug TEXT NOT NULL,
+            concept_key TEXT NOT NULL,
+            subtopic_slug TEXT,
+            wrong_count INTEGER NOT NULL DEFAULT 0,
+            correct_count INTEGER NOT NULL DEFAULT 0,
+            last_wrong_at TEXT,
+            last_right_at TEXT,
+            UNIQUE(lecture_id, topic_slug, concept_key)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tqm_lecture_topic ON topic_quiz_mistake_stats(lecture_id, topic_slug)"
+    )
+
+
 def init_db() -> None:
     ensure_directories()
     db_path: Path = DATABASE_PATH
@@ -131,6 +158,7 @@ def init_db() -> None:
         _ensure_study_progress_column(conn)
         _ensure_is_starred_column(conn)
         _ensure_planner_schedule_table(conn)
+        _ensure_topic_quiz_mistake_stats(conn)
         conn.commit()
 
 
