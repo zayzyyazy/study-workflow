@@ -17,10 +17,15 @@ from app.services import (
 def build_home_dashboard() -> dict[str, Any]:
     lectures = lecture_service.list_lectures_for_planner()
     dash = planner_service.build_planner_dashboard()
+    uni_tasks_open = uni_task_service.list_tasks(status="open", limit=20)
+    task_lecture_ids = {int(t["lecture_id"]) for t in uni_tasks_open if isinstance(t.get("lecture_id"), int)}
+    task_course_ids = {int(t["course_id"]) for t in uni_tasks_open if isinstance(t.get("course_id"), int)}
 
     continue_ = [l for l in lectures if l.get("study_progress") == "in_progress"]
     continue_.sort(
         key=lambda x: (
+            1 if int(x.get("id") or 0) in task_lecture_ids else 0,
+            1 if int(x.get("course_id") or 0) in task_course_ids else 0,
             -(int(x.get("is_starred") or 0)),
             x.get("created_at") or "",
         ),
@@ -31,6 +36,8 @@ def build_home_dashboard() -> dict[str, Any]:
     not_started = [l for l in lectures if l.get("study_progress") == "not_started"]
     not_started.sort(
         key=lambda x: (
+            1 if int(x.get("id") or 0) in task_lecture_ids else 0,
+            1 if int(x.get("course_id") or 0) in task_course_ids else 0,
             -(int(x.get("is_starred") or 0)),
             x.get("created_at") or "",
         ),
@@ -70,9 +77,11 @@ def build_home_dashboard() -> dict[str, Any]:
     planner_next = planner_next[:4]
     focus = dash.get("focus_lines") or []
     focus = focus[:4]
+    next_actions = dash.get("next_actions") or []
+    next_actions = next_actions[:5]
 
     connection_hints = lecture_links_service.home_connection_hints(limit=5)
-    uni_tasks_open = uni_task_service.list_tasks(status="open", limit=8)
+    uni_tasks_open = uni_tasks_open[:8]
     uni_tasks_done = uni_task_service.list_tasks(status="done", limit=4)
 
     return {
@@ -84,6 +93,7 @@ def build_home_dashboard() -> dict[str, Any]:
         "deep_dive_by_course": deep_by_course,
         "planner_next": planner_next,
         "planner_focus": focus,
+        "next_actions": next_actions,
         "connection_hints": connection_hints,
         "uni_tasks_open": uni_tasks_open,
         "uni_tasks_done": uni_tasks_done,

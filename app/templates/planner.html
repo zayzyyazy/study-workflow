@@ -117,6 +117,21 @@
 </section>
 {% endif %}
 
+{% if dash.next_actions %}
+<section class="planner-section" aria-labelledby="planner-next-actions-h">
+  <h2 id="planner-next-actions-h">Next actions</h2>
+  <p class="muted small-print" style="margin-top:0;">Top actions ranked by urgency, task links, and class timing.</p>
+  <ul class="planner-list">
+    {% for line in dash.next_actions %}
+    <li>
+      {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+      {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 {% if dash.course_attention %}
 <section class="planner-section" aria-labelledby="planner-attn-h">
   <h2 id="planner-attn-h">Where to look</h2>

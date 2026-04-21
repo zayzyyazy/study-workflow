@@ -472,7 +472,7 @@ def build_lecture_page_context(lecture_id: int) -> dict[str, Any]:
     }
 
 
-def list_missing_recommended_deep_dives(limit: int = 12) -> list[dict[str, Any]]:
+def list_missing_recommended_deep_dives(limit: int = 12, *, include_done_lectures: bool = False) -> list[dict[str, Any]]:
     """
     High-priority roadmap topics without a generated deep dive yet (for planner hints).
     """
@@ -480,6 +480,8 @@ def list_missing_recommended_deep_dives(limit: int = 12) -> list[dict[str, Any]]
     out: list[dict[str, Any]] = []
     for lec in rows:
         if lec.get("status") != "generation_complete":
+            continue
+        if not include_done_lectures and str(lec.get("study_progress") or "") == "done":
             continue
         try:
             root = lecture_root_from_source_relative(lec["source_file_path"])

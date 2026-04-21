@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Any, Optional
 
-from app.services import lecture_service, planner_schedule_service, topic_deep_dive
+from app.services import lecture_service, planner_schedule_service, topic_deep_dive, uni_task_service
 
 WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
@@ -270,7 +270,19 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     for d in deadlines:
         d.pop("_sort", None)
 
-    # Deep dives missing (detail list — capped)
+    # Open uni tasks (used across prioritization)
+    open_tasks = uni_task_service.list_tasks(status="open", limit=64)
+    open_tasks_by_course: dict[int, list[dict[str, Any]]] = {}
+    open_tasks_by_lecture: dict[int, list[dict[str, Any]]] = {}
+    for t in open_tasks:
+        cid = t.get("course_id")
+        lid = t.get("lecture_id")
+        if isinstance(cid, int):
+            open_tasks_by_course.setdefault(cid, []).append(t)
+        if isinstance(lid, int):
+            open_tasks_by_lecture.setdefault(lid, []).append(t)
+
+    # Deep dives missing (detail list — capped) — skips done lectures by default
     deep_rows = topic_deep_dive.list_missing_recommended_deep_dives(24)
     deep_dive_lines: list[dict[str, Any]] = []
     for d in deep_rows[:8]:
@@ -315,6 +327,25 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
                     "sub": "your upload",
                 }
             )
+            linked_tasks = open_tasks_by_lecture.get(int(lecs_nd[0]["id"]), [])
+            if linked_tasks:
+                focus_lines.append(
+                    {
+                        "text": f"Task first: {linked_tasks[0]['title']}",
+                        "href": f"/lectures/{lecs_nd[0]['id']}",
+                        "sub": "linked uni task",
+                    }
+                )
+            else:
+                c_tasks = open_tasks_by_course.get(cid, [])
+                if c_tasks:
+                    focus_lines.append(
+                        {
+                            "text": f"Course task: {c_tasks[0]['title']}",
+                            "href": f"/courses/{cid}",
+                            "sub": "open uni task",
+                        }
+                    )
         for d in deep_rows:
             if int(d["course_id"]) == cid:
                 focus_lines.append(
@@ -338,6 +369,160 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
         )
 
     focus_lines = focus_lines[:4]
+
+    # Top next actions: merges timing, lecture state, and uni tasks into one short ranked list
+    next_actions_scored: list[tuple[float, dict[str, Any]]] = []
+
+    # Task urgency first
+    for t in open_tasks:
+        score = 22.0
+        due_label = str(t.get("due_label") or "")
+        if due_label.startswith("Overdue"):
+            score += 20.0
+        elif due_label == "Due today":
+            score += 16.0
+        elif due_label == "Due tomorrow":
+            score += 12.0
+        if t.get("lecture_id"):
+            score += 8.0
+        elif t.get("course_id"):
+            score += 5.0
+        if str(t.get("task_kind") or "") in {"exercise", "review", "prepare"}:
+            score += 3.0
+        href: str | None = None
+        if t.get("lecture_id"):
+            href = f"/lectures/{int(t['lecture_id'])}"
+        elif t.get("course_id"):
+            href = f"/courses/{int(t['course_id'])}"
+        sub = "uni task"
+        if t.get("due_label"):
+            sub = f"{sub} · {t['due_label']}"
+        if t.get("course_name"):
+            sub = f"{sub} · {t['course_name']}"
+        next_actions_scored.append(
+            (
+                score,
+                {
+                    "text": t["title"],
+                    "href": href,
+                    "sub": sub,
+                    "kind": "task",
+                },
+            )
+        )
+
+    # Pre-class prep for tomorrow / near-term classes
+    for dt, row in upcoming_inst[:16]:
+        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+            continue
+        cid = int(row["course_id"])
+        soon_hours = (dt - now).total_seconds() / 3600.0
+        if soon_hours > 36:
+            continue
+        lecs_nd = [
+            l
+            for l in lectures
+            if int(l["course_id"]) == cid and (l.get("study_progress") or "") != "done"
+        ]
+        if not lecs_nd:
+            continue
+        lecs_nd.sort(
+            key=lambda x: (
+                0 if x.get("study_progress") == "in_progress" else 1,
+                -(int(x.get("is_starred") or 0)),
+                x.get("title") or "",
+            )
+        )
+        lead = lecs_nd[0]
+        score = 18.0 + max(0.0, 14.0 - (soon_hours / 3.0))
+        if lead.get("study_progress") == "in_progress":
+            score += 4.0
+        next_actions_scored.append(
+            (
+                score,
+                {
+                    "text": f"Before class: review «{lead['title']}»",
+                    "href": f"/lectures/{lead['id']}",
+                    "sub": f"{dt.strftime('%a %H:%M')} · {lead.get('course_name') or ''}",
+                    "kind": "before_class",
+                },
+            )
+        )
+        c_tasks = open_tasks_by_course.get(cid, [])
+        if c_tasks:
+            next_actions_scored.append(
+                (
+                    score + 1.5,
+                    {
+                        "text": f"Before class task: {c_tasks[0]['title']}",
+                        "href": f"/courses/{cid}",
+                        "sub": f"{dt.strftime('%a %H:%M')} · linked task",
+                        "kind": "before_class_task",
+                    },
+                )
+            )
+        break
+
+    # Follow-up after recent class blocks
+    recent_inst = _expand_instances(schedule, today - timedelta(days=1), 2)
+    for dt, row in recent_inst:
+        if dt > now:
+            continue
+        if now - dt > timedelta(hours=12):
+            continue
+        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+            continue
+        cid = int(row["course_id"])
+        in_prog = [
+            l
+            for l in lectures
+            if int(l["course_id"]) == cid and (l.get("study_progress") or "") == "in_progress"
+        ]
+        if in_prog:
+            next_actions_scored.append(
+                (
+                    24.0,
+                    {
+                        "text": f"After class: finish «{in_prog[0]['title']}»",
+                        "href": f"/lectures/{in_prog[0]['id']}",
+                        "sub": "post-lecture follow-up",
+                        "kind": "after_class",
+                    },
+                )
+            )
+        break
+
+    # Missing deep dives only when lecture still not done and close to upcoming class
+    for d in deep_rows:
+        lid = int(d["lecture_id"])
+        lec = next((l for l in lectures if int(l["id"]) == lid), None)
+        if not lec or (lec.get("study_progress") or "") == "done":
+            continue
+        score = 11.0
+        if any(int(r.get("course_id") or -1) == int(d["course_id"]) for _, r in upcoming_inst[:6]):
+            score += 7.0
+        next_actions_scored.append(
+            (
+                score,
+                {
+                    "text": f"Generate deep dive: {d['topic_title']}",
+                    "href": f"/lectures/{lid}/topics/{d['slug']}",
+                    "sub": f"{d.get('course_name') or ''} · {d.get('lecture_title') or ''}",
+                    "kind": "deep_dive",
+                },
+            )
+        )
+    next_actions_scored.sort(key=lambda x: x[0], reverse=True)
+    next_actions: list[dict[str, Any]] = []
+    seen_text: set[str] = set()
+    for _score, item in next_actions_scored:
+        key = str(item.get("text") or "").strip().lower()
+        if not key or key in seen_text:
+            continue
+        seen_text.add(key)
+        next_actions.append(item)
+        if len(next_actions) >= 5:
+            break
 
     # Courses that need attention (unfinished work + missing dives)
     course_attention: list[dict[str, Any]] = []
@@ -400,6 +585,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
         ],
         "tomorrow_study": tomorrow_study[:8],
         "focus_lines": focus_lines,
+        "next_actions": next_actions,
         "course_attention": course_attention[:8],
         "deep_dive_by_course": deep_dive_by_course,
         "next_up": next_up,

@@ -123,6 +123,7 @@
   'deep_dive_by_course': [],
   'planner_next': [],
   'planner_focus': [],
+  'next_actions': [],
   'connection_hints': [],
   'uni_tasks_open': [],
   'uni_tasks_done': [],
@@ -264,6 +265,20 @@
   <h2 id="hd-focus">Suggested next</h2>
   <ul>
     {% for line in hd.planner_focus %}
+    <li>
+      {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
+      {% if line.sub %}<span class="sub">{{ line.sub }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if hd.next_actions %}
+<section class="home-dash-wide" aria-labelledby="hd-actions">
+  <h2 id="hd-actions">Next actions</h2>
+  <ul>
+    {% for line in hd.next_actions %}
     <li>
       {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
       {% if line.sub %}<span class="sub">{{ line.sub }}</span>{% endif %}
