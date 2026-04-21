@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
-from app.services import course_service, lecture_service
+from app.services import course_map_service, course_service, lecture_service
 from app.services.course_delete import delete_course
 from app.services.mini_help_service import context_for_request
 from app.services.storage_view import enrich_lecture_rows_for_course_ui
@@ -33,6 +33,35 @@ def _course_filter_url(course_id: int, **params: str | int | None) -> str:
     if not parts:
         return f"/courses/{course_id}"
     return f"/courses/{course_id}?{urlencode(parts)}"
+
+
+@router.get("/courses/{course_id}/map", response_class=HTMLResponse)
+def course_map_and_path(request: Request, course_id: int) -> HTMLResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    ctx = course_map_service.build_course_map_and_path(course_id)
+    total_lectures = lecture_service.count_lectures_for_course(course_id)
+    study_done = lecture_service.count_study_progress_in_course(course_id, "done")
+    return templates.TemplateResponse(
+        request,
+        "course_study_plan.html",
+        {
+            "title": f"{course['name']} · Map & path",
+            "course": course,
+            "plan": ctx,
+            "total_lectures_in_course": total_lectures,
+            "study_done_in_course": study_done,
+            "mini_help_context": context_for_request(
+                request,
+                "course",
+                course_id=course_id,
+                course_name=course["name"],
+                lecture_count=total_lectures,
+                study_done_in_course=study_done,
+            ),
+        },
+    )
 
 
 @router.get("/courses/{course_id}", response_class=HTMLResponse)

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+.course-plan-page { max-width: 52rem; }
+.course-plan-lede { color: var(--muted); font-size: 0.92rem; margin: 0 0 1rem; }
+.course-plan-disclaimer {
+  font-size: 0.8rem; color: var(--muted);
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  margin-bottom: 1.25rem;
+}
+.course-plan-section { margin-bottom: 1.75rem; }
+.course-plan-section h2 {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+.course-plan-anchors { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.75rem; padding-left: 1.1rem; }
+.course-map-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.course-map-node {
+  flex: 1 1 7.5rem;
+  min-width: 6.5rem;
+  max-width: 11rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.5rem;
+  background: var(--card);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.course-map-node a { font-weight: 550; text-decoration: none; }
+.course-map-node a:hover { text-decoration: underline; }
+.course-map-seq { font-size: 0.72rem; color: var(--muted); }
+.course-map-role {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.role-foundation { background: rgba(46, 125, 50, 0.12); }
+.role-core { background: rgba(25, 118, 210, 0.1); }
+.role-applied { background: rgba(123, 31, 162, 0.1); }
+.course-map-arrow { align-self: center; color: var(--muted); font-size: 0.85rem; padding: 0 0.1rem; }
+.course-plan-bullets { margin: 0; padding-left: 1.15rem; font-size: 0.88rem; }
+.course-plan-bullets li { margin-bottom: 0.35rem; }
+.cluster-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; font-size: 0.8rem; margin-top: 0.35rem; }
+.cluster-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; margin-right: 0.25rem; vertical-align: middle; }
+.study-path-ol { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; }
+.study-path-ol li { margin-bottom: 0.55rem; }
+.study-path-note { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+.toc-snippet { font-size: 0.8rem; color: var(--muted); max-height: 9rem; overflow: auto; border: 1px solid var(--border); padding: 0.5rem 0.65rem; border-radius: 6px; }
+.progress-pill { font-size: 0.72rem; margin-left: 0.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="course-plan-page">
+<nav class="crumb crumb-path" aria-label="Breadcrumb">
+  <a href="/">Home</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <a href="/courses/{{ course.id }}">{{ course.name }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <span class="crumb-current">Map &amp; study path</span>
+</nav>
+
+<h1 class="page-workspace-title">Course map</h1>
+<p class="course-plan-lede">
+  Overview → how lectures connect → a practical study order. Uses your <strong>first lectures’ extracted text</strong> (TOC / outline when present), titles, course order, and shared concepts.
+</p>
+
+<p class="muted small-print" style="margin-top:-0.25rem;">
+  {% if total_lectures_in_course > 0 %}
+  <strong>{{ study_done_in_course }}</strong> / {{ total_lectures_in_course }} lectures marked done in this course.
+  {% endif %}
+</p>
+
+<div class="course-plan-disclaimer">{{ plan.disclaimer }}</div>
+
+{% if plan.anchors_scanned %}
+<section class="course-plan-section" aria-labelledby="plan-anchors">
+  <h2 id="plan-anchors">Structural anchor</h2>
+  <p class="muted small-print" style="margin:0 0 0.35rem;">Text scanned from the start of these lectures (for outline / Inhaltsverzeichnis):</p>
+  <ul class="course-plan-anchors">
+    {% for a in plan.anchors_scanned %}
+    <li><a href="/lectures/{{ a.id }}">{{ a.title }}</a> — {{ a.chars|default(0) }} characters read</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if plan.toc_entries %}
+<section class="course-plan-section" aria-labelledby="plan-toc">
+  <h2 id="plan-toc">Detected outline lines</h2>
+  <p class="muted small-print" style="margin:0 0 0.35rem;">Parsed from early material (best-effort; not always a full TOC).</p>
+  <div class="toc-snippet">
+    <ul style="margin:0; padding-left:1rem;">
+      {% for e in plan.toc_entries %}
+      <li>{% if e.num %}{{ e.num }}. {% endif %}{{ e.title }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+<section class="course-plan-section" aria-labelledby="plan-map">
+  <h2 id="plan-map">How lectures sit in the course</h2>
+  {% if plan.structure_bullets %}
+  <ul class="course-plan-bullets">
+    {% for b in plan.structure_bullets %}
+    <li>{{ b }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if plan.cluster_labels and plan.cluster_labels|length > 1 %}
+  <div class="cluster-legend" aria-label="Topic clusters">
+    {% for cl in plan.cluster_labels %}
+    <span><span class="cluster-dot" style="background: hsl({{ (cl.cluster_id * 47) % 360 }}, 45%, 55%);"></span>{{ cl.label }} ({{ cl.size }})</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="course-map-track" role="list">
+    {% for node in plan.map_nodes %}
+    {% if not loop.first %}<span class="course-map-arrow" aria-hidden="true">→</span>{% endif %}
+    <div class="course-map-node" role="listitem">
+      <span class="course-map-seq">#{{ node.seq }}</span>
+      <div><a href="{{ node.href }}">{{ node.title }}</a></div>
+      <span class="course-map-role role-{{ node.role }}">{{ node.role }}</span>
+      {% if plan.cluster_labels|length > 1 %}
+      <span class="muted small-print" style="display:block;margin-top:0.2rem;">Cluster {{ node.cluster_id + 1 }}</span>
+      {% endif %}
+      {% if node.in_toc_order %}
+      <span class="muted small-print" style="display:block;">In outline match</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="course-plan-section" aria-labelledby="plan-path">
+  <h2 id="plan-path">Recommended study order</h2>
+  <p class="muted small-print" style="margin:0 0 0.65rem;">
+    Order blends <strong>outline matches</strong> (when found) with your library sequence, then adds short notes from <strong>shared concepts</strong>. It is a guide — not a rigid syllabus.
+  </p>
+  {% if plan.study_steps %}
+  <ol class="study-path-ol">
+    {% for step in plan.study_steps %}
+    <li>
+      <a href="{{ step.href }}">{{ step.title }}</a>
+      <span class="progress-pill muted">({{ step.study_progress | replace('_', ' ') }})</span>
+      {% if step.note %}
+      <span class="study-path-note">{{ step.note }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted">No steps — add lectures to this course.</p>
+  {% endif %}
+</section>
+
+<p class="muted small-print"><a href="/courses/{{ course.id }}">← Back to course</a></p>
+</div>
+{% endblock %}

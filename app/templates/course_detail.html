@@ -78,6 +78,11 @@
     </div>
   </div>
   {% endif %}
+  <p class="course-plan-entry muted small-print" style="margin: 0.5rem 0 0;">
+    <a href="/courses/{{ course.id }}/map">Course map &amp; study path</a>
+    <span aria-hidden="true"> · </span>
+    <span class="muted">Overview, connections, suggested order</span>
+  </p>
   <div class="course-meta-quiet">
     <p class="muted small-print course-meta-line">
       Course added <time datetime="{{ course.created_at }}">{{ course.created_at }}</time>
