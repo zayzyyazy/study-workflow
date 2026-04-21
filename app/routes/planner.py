@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
-from app.services import course_service, planner_schedule_service, planner_service
+from app.services import course_service, planner_schedule_service, planner_service, uni_task_service
 from app.services.mini_help_service import context_for_request
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
@@ -26,6 +26,7 @@ def planner_page(request: Request) -> HTMLResponse:
         {
             "title": "Planner",
             "dash": dash,
+            "uni_tasks_open": uni_task_service.list_tasks(status="open", limit=6),
             "courses": courses,
             "notice": notice,
             "error": err,

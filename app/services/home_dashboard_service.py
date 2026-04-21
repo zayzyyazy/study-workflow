@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services import course_service, lecture_links_service, lecture_service, planner_service, topic_deep_dive
+from app.services import (
+    course_service,
+    lecture_links_service,
+    lecture_service,
+    planner_service,
+    topic_deep_dive,
+    uni_task_service,
+)
 
 
 def build_home_dashboard() -> dict[str, Any]:
@@ -65,6 +72,8 @@ def build_home_dashboard() -> dict[str, Any]:
     focus = focus[:4]
 
     connection_hints = lecture_links_service.home_connection_hints(limit=5)
+    uni_tasks_open = uni_task_service.list_tasks(status="open", limit=8)
+    uni_tasks_done = uni_task_service.list_tasks(status="done", limit=4)
 
     return {
         "continue_lectures": continue_,
@@ -76,5 +85,7 @@ def build_home_dashboard() -> dict[str, Any]:
         "planner_next": planner_next,
         "planner_focus": focus,
         "connection_hints": connection_hints,
+        "uni_tasks_open": uni_tasks_open,
+        "uni_tasks_done": uni_tasks_done,
         "stats_line": dash.get("stats_line", ""),
     }

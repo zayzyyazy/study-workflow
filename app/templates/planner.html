@@ -246,6 +246,25 @@
   {% endif %}
 </section>
 
+{% if uni_tasks_open %}
+<section class="planner-section" aria-labelledby="planner-uni-tasks">
+  <h2 id="planner-uni-tasks">Uni tasks to keep moving</h2>
+  <ul class="planner-list">
+    {% for t in uni_tasks_open %}
+    <li>
+      {{ t.title }}
+      <span class="planner-sub">
+        {% if t.task_kind %}{{ t.task_kind }}{% else %}task{% endif %}
+        {% if t.due_label %} · {{ t.due_label }}{% endif %}
+        {% if t.course_name %} · {{ t.course_name }}{% endif %}
+        {% if t.lecture_title %} · {{ t.lecture_title }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <div class="planner-grid">
   <section class="planner-card" aria-labelledby="planner-dd">
     <h2 id="planner-dd">Deep dives</h2>

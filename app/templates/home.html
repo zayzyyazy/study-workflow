@@ -78,6 +78,39 @@
   color: var(--muted);
   margin-top: 0.05rem;
 }
+.uni-tasks-card {
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.uni-tasks-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.uni-task-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+.uni-task-add input {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.45rem;
+}
+.uni-task-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.uni-task-list li { margin-bottom: 0.55rem; }
+.uni-task-meta { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+.uni-task-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+.uni-task-actions form { display: inline-block; margin: 0; }
+.uni-task-actions button { font-size: 0.72rem; padding: 0.17rem 0.35rem; }
+.uni-task-edit { margin-top: 0.28rem; display: flex; flex-wrap: wrap; gap: 0.32rem; }
+.uni-task-edit input { font-size: 0.74rem; padding: 0.18rem 0.3rem; }
 </style>
 {% endblock %}
 {% block content %}
@@ -91,6 +124,8 @@
   'planner_next': [],
   'planner_focus': [],
   'connection_hints': [],
+  'uni_tasks_open': [],
+  'uni_tasks_done': [],
   'stats_line': ''
 }) %}
 <div class="workspace-home workspace-home--simple">
@@ -119,6 +154,54 @@
   <a class="button" href="/planner">Open planner</a>
   <a class="button button-secondary" href="/upload">Upload lecture</a>
 </div>
+
+<section class="uni-tasks-card" aria-labelledby="uni-tasks-title">
+  <h2 id="uni-tasks-title" class="uni-tasks-title">Uni tasks</h2>
+  <form class="uni-task-add" method="post" action="/uni-tasks/add">
+    <input type="text" name="title" required maxlength="220" placeholder="e.g. do Übungsblatt 2 for Digitale Medien">
+    <input type="date" name="due_date" aria-label="Due date (optional)">
+    <button class="button button-secondary" type="submit">Add</button>
+  </form>
+  {% if hd.uni_tasks_open %}
+  <ul class="uni-task-list">
+    {% for t in hd.uni_tasks_open %}
+    <li>
+      <span>{{ t.title }}</span>
+      <span class="uni-task-meta">
+        {% if t.task_kind %}{{ t.task_kind }}{% else %}task{% endif %}
+        {% if t.due_label %} · {{ t.due_label }}{% endif %}
+        {% if t.course_name %} · {{ t.course_name }}{% endif %}
+        {% if t.lecture_title %} · {{ t.lecture_title }}{% endif %}
+      </span>
+      <div class="uni-task-actions">
+        <form method="post" action="/uni-tasks/{{ t.id }}/done"><button type="submit" class="button button-secondary button-small">Done</button></form>
+        <form method="post" action="/uni-tasks/{{ t.id }}/delete" onsubmit="return confirm('Delete this task?');"><button type="submit" class="button button-secondary button-small">Delete</button></form>
+      </div>
+      <form class="uni-task-edit" method="post" action="/uni-tasks/{{ t.id }}/edit">
+        <input type="text" name="title" value="{{ t.title }}" maxlength="220" required>
+        <input type="date" name="due_date" value="{{ t.due_date or '' }}">
+        <button type="submit" class="button button-secondary button-small">Save</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small-print" style="margin:0;">No open uni tasks yet.</p>
+  {% endif %}
+  {% if hd.uni_tasks_done %}
+  <p class="muted small-print" style="margin:0.55rem 0 0.2rem;">Recently done</p>
+  <ul class="uni-task-list">
+    {% for t in hd.uni_tasks_done %}
+    <li>
+      <span>{{ t.title }}</span>
+      <div class="uni-task-actions">
+        <form method="post" action="/uni-tasks/{{ t.id }}/undo"><button type="submit" class="button button-secondary button-small">Undo</button></form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
 
 {% if hd.connection_hints %}
 <section class="home-connection-hints" aria-labelledby="hd-conn">
