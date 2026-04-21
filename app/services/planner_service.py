@@ -21,6 +21,25 @@ WEEKDAY_NAMES_FORM = (
 )
 
 
+def _planner_kind_display(kind: str | None) -> str:
+    k = (kind or "").strip().lower()
+    if k == "lecture":
+        return "Lecture"
+    if k == "ubung":
+        return "Übung"
+    if k == "project":
+        return "Project"
+    if k in ("block", "deadline"):
+        return "Project"
+    return (kind or "—").strip() or "—"
+
+
+def _is_course_session(kind: str | None) -> bool:
+    """Lecture or Übung: link to a course and should drive prep / class-adjacent hints."""
+    k = (kind or "").strip().lower()
+    return k in ("lecture", "ubung")
+
+
 def _parse_hhmm(s: str) -> time:
     parts = (s or "00:00").strip().split(":")
     h = int(parts[0])
@@ -102,16 +121,15 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             in_block = row
             break
     if in_block:
-        k = str(in_block.get("kind") or "")
         now_lines.append(
             {
                 "text": f"In session: {in_block['title']}",
                 "href": _course_href(in_block),
-                "sub": k,
+                "sub": _planner_kind_display(str(in_block.get("kind") or "")),
             }
         )
     else:
-        now_lines.append({"text": "No scheduled block right now.", "href": None, "sub": None})
+        now_lines.append({"text": "No scheduled session right now.", "href": None, "sub": None})
 
     next_today: Optional[dict[str, Any]] = None
     for row in today_rows:
@@ -124,7 +142,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             {
                 "text": f"Next today: {next_today['title']} · {next_today['start_time']}",
                 "href": _course_href(next_today),
-                "sub": str(next_today.get("kind") or ""),
+                "sub": _planner_kind_display(str(next_today.get("kind") or "")),
             }
         )
 
@@ -141,7 +159,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
 
     course_ids_today: set[int] = set()
     for row in today_rows:
-        if str(row.get("kind")) == "lecture" and row.get("course_id"):
+        if _is_course_session(str(row.get("kind"))) and row.get("course_id"):
             course_ids_today.add(int(row["course_id"]))
 
     for cid in sorted(course_ids_today):
@@ -163,9 +181,15 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     for row in today_rows:
         if str(row.get("kind")) == "project":
             _add_line(
-                f"Project block: {row['title']}",
+                f"Project: {row['title']}",
                 _course_href(row),
                 "scheduled",
+            )
+        elif str(row.get("kind")) == "ubung" and row.get("course_id"):
+            _add_line(
+                f"Übung today: {row['title']}",
+                _course_href(row),
+                str(row.get("course_name") or ""),
             )
 
     for lec in lectures:
@@ -187,7 +211,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
 
     course_ids_tomorrow: set[int] = set()
     for row in tomorrow_rows:
-        if str(row.get("kind")) == "lecture" and row.get("course_id"):
+        if _is_course_session(str(row.get("kind"))) and row.get("course_id"):
             course_ids_tomorrow.add(int(row["course_id"]))
 
     tomorrow_study: list[dict[str, Any]] = []
@@ -227,6 +251,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
                 "when": dt.strftime("%a %Y-%m-%d %H:%M"),
                 "label": row["title"],
                 "kind": row.get("kind"),
+                "kind_label": _planner_kind_display(str(row.get("kind") or "")),
                 "href": _course_href(row),
             }
         )
@@ -242,33 +267,6 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
                     "sub": str(lec.get("course_name") or ""),
                 }
             )
-
-    # Deadlines (one-off, date >= today)
-    deadlines: list[dict[str, Any]] = []
-    for s in schedule:
-        if str(s.get("kind")) != "deadline":
-            continue
-        if str(s.get("recurrence")) != "once":
-            continue
-        sd = (s.get("specific_date") or "").strip()
-        if not sd:
-            continue
-        try:
-            d = date.fromisoformat(sd)
-        except ValueError:
-            continue
-        if d >= today:
-            deadlines.append(
-                {
-                    "text": f"{s['title']} · {sd}",
-                    "href": _course_href(s),
-                    "sub": f"{s.get('start_time')}",
-                    "_sort": d,
-                }
-            )
-    deadlines.sort(key=lambda x: x["_sort"])
-    for d in deadlines:
-        d.pop("_sort", None)
 
     # Open uni tasks (used across prioritization)
     open_tasks = uni_task_service.list_tasks(status="open", limit=64)
@@ -301,7 +299,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     focus_lines: list[dict[str, Any]] = []
     upcoming_inst = _expand_instances(schedule, today, 10, after=now)
     for dt, row in upcoming_inst:
-        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+        if not _is_course_session(str(row.get("kind"))) or not row.get("course_id"):
             continue
         if dt > now + timedelta(hours=96):
             break
@@ -413,7 +411,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
 
     # Pre-class prep for tomorrow / near-term classes
     for dt, row in upcoming_inst[:16]:
-        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+        if not _is_course_session(str(row.get("kind"))) or not row.get("course_id"):
             continue
         cid = int(row["course_id"])
         soon_hours = (dt - now).total_seconds() / 3600.0
@@ -470,7 +468,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             continue
         if now - dt > timedelta(hours=12):
             continue
-        if str(row.get("kind")) != "lecture" or not row.get("course_id"):
+        if not _is_course_session(str(row.get("kind"))) or not row.get("course_id"):
             continue
         cid = int(row["course_id"])
         in_prog = [
@@ -568,7 +566,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             {
                 "text": f"{r['start_time']}–{r['end_time']} · {r['title']}",
                 "href": _course_href(r),
-                "sub": f"{r.get('kind') or ''}"
+                "sub": _planner_kind_display(str(r.get("kind") or ""))
                 + (f" · {r.get('course_name')}" if r.get("course_name") else ""),
             }
             for r in today_rows
@@ -578,7 +576,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
             {
                 "text": f"{r['start_time']}–{r['end_time']} · {r['title']}",
                 "href": _course_href(r),
-                "sub": f"{r.get('kind') or ''}"
+                "sub": _planner_kind_display(str(r.get("kind") or ""))
                 + (f" · {r.get('course_name')}" if r.get("course_name") else ""),
             }
             for r in tomorrow_rows
@@ -590,7 +588,6 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
         "deep_dive_by_course": deep_dive_by_course,
         "next_up": next_up,
         "catch_up": catch_up[:16],
-        "deadlines": deadlines,
         "deep_dive_lines": deep_dive_lines,
         "stats_line": f"In progress: {n_ip} · Not started: {n_ns} · Done: {n_done}",
         "schedule_items": schedule,

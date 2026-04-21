@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+.dp-page { max-width: 44rem; }
+.dp-lede { color: var(--muted); font-size: 0.92rem; margin: 0 0 1rem; }
+.dp-summary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.dp-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.65rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+}
+.dp-summary-grid strong { font-size: 1.05rem; }
+.dp-bar {
+  height: 0.45rem;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dp-bar-fill {
+  height: 100%;
+  background: color-mix(in srgb, var(--text) 70%, transparent);
+  border-radius: 4px;
+  max-width: 100%;
+}
+.dp-section { margin-bottom: 1.5rem; }
+.dp-section h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+.dp-target-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: flex-end; margin-bottom: 0.5rem; }
+.dp-target-form label { font-size: 0.82rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.2rem; }
+.dp-target-form input { width: 5rem; padding: 0.3rem 0.4rem; }
+.dp-add-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: flex-end; margin-bottom: 1rem; }
+.dp-add-form label { font-size: 0.82rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.2rem; }
+.dp-add-form input[type="text"] { min-width: 12rem; }
+.dp-add-form input { padding: 0.3rem 0.4rem; font-size: 0.88rem; }
+.dp-cat-title {
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 1rem 0 0.4rem;
+}
+.dp-cat-title:first-of-type { margin-top: 0; }
+.dp-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.dp-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.dp-list li.done { opacity: 0.72; }
+.dp-title { flex: 1 1 10rem; font-weight: 500; }
+.dp-cp { color: var(--muted); min-width: 4rem; }
+.dp-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.dp-actions form { display: inline; margin: 0; }
+.dp-actions button { font-size: 0.72rem; padding: 0.15rem 0.35rem; }
+.dp-edit { width: 100%; margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: flex-end; }
+.dp-edit input { font-size: 0.78rem; padding: 0.2rem 0.35rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dp-page">
+<nav class="crumb crumb-path" aria-label="Breadcrumb">
+  <a href="/">Home</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <span class="crumb-current">Degree progress</span>
+</nav>
+
+<h1 class="page-workspace-title">Degree progress</h1>
+<p class="dp-lede">Track credit points toward your degree target. Mark components done when finished — local only, not a transcript.</p>
+
+{% if notice %}
+<p class="flash flash-success">{{ notice }}</p>
+{% endif %}
+{% if error %}
+<p class="flash flash-error">{{ error }}</p>
+{% endif %}
+
+<section class="dp-summary" aria-labelledby="dp-sum-h">
+  <h2 id="dp-sum-h" class="visually-hidden">Summary</h2>
+  <div class="dp-summary-grid">
+    <div><span class="muted small-print">Target</span><br><strong>{{ summary.target_cp }} CP</strong></div>
+    <div><span class="muted small-print">Done</span><br><strong>{{ summary.done_cp }} CP</strong></div>
+    <div><span class="muted small-print">Left to goal</span><br><strong>{{ summary.remaining_to_goal_cp }} CP</strong></div>
+    <div><span class="muted small-print">Listed (not done)</span><br><strong>{{ summary.open_cp }} CP</strong></div>
+    <div><span class="muted small-print">Progress</span><br><strong>{{ summary.pct_of_target }}%</strong></div>
+  </div>
+  <div class="dp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ summary.pct_of_target | int }}" aria-label="Progress toward target">
+    <div class="dp-bar-fill" style="width: {{ summary.pct_of_target }}%;"></div>
+  </div>
+  <p class="muted small-print" style="margin:0.5rem 0 0;">{{ summary.entry_count }} component(s) · {{ summary.done_count }} done · {{ summary.open_count }} open</p>
+</section>
+
+<section class="dp-section" aria-labelledby="dp-target-h">
+  <h2 id="dp-target-h">Degree target</h2>
+  <form class="dp-target-form" method="post" action="/degree-progress/target">
+    <label>Total CP (e.g. 180)
+      <input type="text" name="target_cp" value="{{ summary.target_cp }}" inputmode="decimal" required>
+    </label>
+    <button type="submit" class="button button-secondary">Save target</button>
+  </form>
+</section>
+
+<section class="dp-section" aria-labelledby="dp-add-h">
+  <h2 id="dp-add-h">Add component</h2>
+  <form class="dp-add-form" method="post" action="/degree-progress/add">
+    <label>Title
+      <input type="text" name="title" required maxlength="200" placeholder="e.g. Bachelor thesis">
+    </label>
+    <label>CP
+      <input type="text" name="cp" required inputmode="decimal" placeholder="15">
+    </label>
+    <label>Group (optional)
+      <input type="text" name="category" maxlength="80" placeholder="e.g. Thesis / Praxis">
+    </label>
+    <button type="submit" class="button">Add</button>
+  </form>
+</section>
+
+<section class="dp-section" aria-labelledby="dp-list-h">
+  <h2 id="dp-list-h">Components</h2>
+  {% if grouped_entries %}
+  {% for cat_name, rows in grouped_entries %}
+  <h3 class="dp-cat-title">{{ cat_name }}</h3>
+  <ul class="dp-list">
+    {% for e in rows %}
+    <li class="{% if e.done %}done{% endif %}">
+      <span class="dp-title">{{ e.title }}</span>
+      <span class="dp-cp">{{ e.cp }} CP {% if e.done %}· done{% endif %}</span>
+      <span class="dp-actions">
+        {% if e.done %}
+        <form method="post" action="/degree-progress/{{ e.id }}/open"><button type="submit" class="button button-secondary button-small">Not done</button></form>
+        {% else %}
+        <form method="post" action="/degree-progress/{{ e.id }}/done"><button type="submit" class="button button-secondary button-small">Done</button></form>
+        {% endif %}
+        <form method="post" action="/degree-progress/{{ e.id }}/delete" onsubmit="return confirm('Remove this entry?');"><button type="submit" class="button button-secondary button-small">Delete</button></form>
+      </span>
+      <form class="dp-edit" method="post" action="/degree-progress/{{ e.id }}/edit">
+        <label class="muted small-print" style="display:flex;flex-direction:column;gap:0.15rem;">Title<input type="text" name="title" value="{{ e.title }}" maxlength="200" required></label>
+        <label class="muted small-print" style="display:flex;flex-direction:column;gap:0.15rem;">CP<input type="text" name="cp" value="{{ e.cp }}" required></label>
+        <label class="muted small-print" style="display:flex;flex-direction:column;gap:0.15rem;">Group<input type="text" name="category" value="{{ e.category or '' }}" maxlength="80"></label>
+        <button type="submit" class="button button-secondary button-small">Save</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+  {% else %}
+  <p class="muted">No entries yet — add thesis, Praxisprojekte, or modules above.</p>
+  {% endif %}
+</section>
+
+<p class="muted small-print"><a href="/">← Home</a></p>
+</div>
+{% endblock %}

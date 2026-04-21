@@ -233,15 +233,15 @@
   <h2 id="planner-next">Next up</h2>
   {% if dash.next_up %}
   <ul class="planner-list">
-    {% for row in dash.next_up %}
-    <li>
-      {% if row.href %}<a href="{{ row.href }}">{{ row.when }}</a> — {{ row.label }}{% else %}{{ row.when }} — {{ row.label }}{% endif %}
-      <span class="planner-sub">{{ row.kind }}</span>
-    </li>
-    {% endfor %}
+      {% for row in dash.next_up %}
+      <li>
+        {% if row.href %}<a href="{{ row.href }}">{{ row.when }}</a> — {{ row.label }}{% else %}{{ row.when }} — {{ row.label }}{% endif %}
+        <span class="planner-sub">{{ row.kind_label | default(row.kind) }}</span>
+      </li>
+      {% endfor %}
   </ul>
   {% else %}
-  <p class="planner-empty">No upcoming blocks in the next week.</p>
+  <p class="planner-empty">No upcoming slots in the next week.</p>
   {% endif %}
 </section>
 
@@ -281,7 +281,7 @@
 {% endif %}
 
 <div class="planner-grid">
-  <section class="planner-card" aria-labelledby="planner-dd">
+  <section class="planner-card" aria-labelledby="planner-dd" style="grid-column: 1 / -1;">
     <h2 id="planner-dd">Deep dives</h2>
     {% if dash.deep_dive_by_course %}
     <ul class="planner-list" style="margin-bottom:0.75rem;">
@@ -303,27 +303,11 @@
     <p class="planner-empty">No missing high-priority deep dives (or no topic maps).</p>
     {% endif %}
   </section>
-
-  <section class="planner-card" aria-labelledby="planner-dead">
-    <h2 id="planner-dead">Deadlines</h2>
-    {% if dash.deadlines %}
-    <ul class="planner-list">
-      {% for line in dash.deadlines %}
-      <li>
-        {% if line.href %}<a href="{{ line.href }}">{{ line.text }}</a>{% else %}{{ line.text }}{% endif %}
-        {% if line.sub %}<span class="planner-sub">{{ line.sub }}</span>{% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="planner-empty">—</p>
-    {% endif %}
-  </section>
 </div>
 
 <section class="schedule-editor" aria-labelledby="schedule-edit-heading">
-  <h2 id="schedule-edit-heading">Weekly &amp; one-off blocks</h2>
-  <p class="muted small-print" style="margin-top:0;">Add recurring lectures or project blocks. Link a <strong>lecture</strong> slot to a course so “Study today” can suggest prep before class.</p>
+  <h2 id="schedule-edit-heading">Weekly &amp; one-off slots</h2>
+  <p class="muted small-print" style="margin-top:0;">Add <strong>Lecture</strong>, <strong>Übung</strong>, or <strong>Project</strong> sessions. Link a lecture or Übung to a course so “Study today” and next actions can suggest prep.</p>
 
   <form method="post" action="/planner/schedule/add">
     <div class="planner-form-row">
@@ -333,9 +317,8 @@
       <label>Kind
         <select name="kind" required>
           <option value="lecture">Lecture</option>
+          <option value="ubung">Übung</option>
           <option value="project">Project</option>
-          <option value="block">Block</option>
-          <option value="deadline">Deadline</option>
         </select>
       </label>
       <label>Recurrence
@@ -371,7 +354,7 @@
       <label>End
         <input type="time" name="end_time" required>
       </label>
-      <button type="submit" class="button">Add block</button>
+      <button type="submit" class="button">Add slot</button>
     </div>
   </form>
 
@@ -399,7 +382,7 @@
           {% endif %}
         </td>
         <td>{{ s.title }}</td>
-        <td>{{ s.kind }}</td>
+        <td>{% if s.kind == 'lecture' %}Lecture{% elif s.kind == 'ubung' %}Übung{% elif s.kind == 'project' %}Project{% else %}{{ s.kind }}{% endif %}</td>
         <td>{{ s.course_name or '—' }}</td>
         <td>
           <form method="post" action="/planner/schedule/{{ s.id }}/delete" style="display:inline;">
@@ -411,7 +394,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted small-print">No blocks yet — add your timetable above.</p>
+  <p class="muted small-print">No slots yet — add your timetable above.</p>
   {% endif %}
 </section>
 {% endblock %}

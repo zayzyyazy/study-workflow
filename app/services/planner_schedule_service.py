@@ -6,7 +6,8 @@ from typing import Any, Optional
 
 from app.db.database import get_connection
 
-VALID_KINDS = frozenset({"lecture", "project", "block", "deadline"})
+# Stored kinds: lecture, ubung (exercise / Übung session), project
+VALID_KINDS = frozenset({"lecture", "ubung", "project"})
 VALID_RECURRENCE = frozenset({"weekly", "once"})
 
 
@@ -22,7 +23,14 @@ def list_schedule_items() -> list[dict[str, Any]]:
             ORDER BY (s.weekday IS NULL), s.weekday, (s.specific_date IS NULL), s.specific_date, s.start_time, s.id
             """
         )
-        return [dict(row) for row in cur.fetchall()]
+        rows = [dict(row) for row in cur.fetchall()]
+        # Read-time safety if DB predates migration
+        legacy = {"block": "project", "deadline": "project"}
+        for r in rows:
+            k = str(r.get("kind") or "")
+            if k in legacy:
+                r["kind"] = legacy[k]
+        return rows
 
 
 def add_schedule_item(
@@ -80,7 +88,7 @@ def add_schedule_item(
             (cid, title, kind, recurrence, weekday, specific_date, st, et),
         )
         conn.commit()
-    return True, "Schedule block added."
+    return True, "Slot added."
 
 
 def delete_schedule_item(item_id: int) -> tuple[bool, str]:

@@ -111,6 +111,35 @@
 .uni-task-actions button { font-size: 0.72rem; padding: 0.17rem 0.35rem; }
 .uni-task-edit { margin-top: 0.28rem; display: flex; flex-wrap: wrap; gap: 0.32rem; }
 .uni-task-edit input { font-size: 0.74rem; padding: 0.18rem 0.3rem; }
+.home-degree-card {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+.home-degree-card h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.home-degree-bar {
+  height: 0.38rem;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.4rem 0 0.35rem;
+}
+.home-degree-bar-fill {
+  height: 100%;
+  background: color-mix(in srgb, var(--text) 65%, transparent);
+  border-radius: 4px;
+  max-width: 100%;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -127,6 +156,16 @@
   'connection_hints': [],
   'uni_tasks_open': [],
   'uni_tasks_done': [],
+  'degree_summary': {
+    'target_cp': 180,
+    'done_cp': 0,
+    'open_cp': 0,
+    'remaining_to_goal_cp': 180,
+    'pct_of_target': 0,
+    'entry_count': 0,
+    'open_count': 0,
+    'done_count': 0
+  },
   'stats_line': ''
 }) %}
 <div class="workspace-home workspace-home--simple">
@@ -155,6 +194,22 @@
   <a class="button" href="/planner">Open planner</a>
   <a class="button button-secondary" href="/upload">Upload lecture</a>
 </div>
+
+{% set ds = hd.degree_summary %}
+<section class="home-degree-card" aria-labelledby="home-degree-h">
+  <h2 id="home-degree-h">Degree CP</h2>
+  <p style="margin:0;line-height:1.45;">
+    <strong>{{ ds.done_cp }}</strong> / {{ ds.target_cp }} CP done
+    <span class="muted"> · {{ ds.pct_of_target }}% · {{ ds.remaining_to_goal_cp }} CP left to goal</span>
+  </p>
+  <div class="home-degree-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ ds.pct_of_target | int }}" aria-label="Degree target progress">
+    <div class="home-degree-bar-fill" style="width: {{ ds.pct_of_target }}%;"></div>
+  </div>
+  <p class="muted small-print" style="margin:0;">
+    <a href="/degree-progress">Manage components</a>
+    {% if ds.entry_count == 0 %} · add thesis, Praxisprojekte, or modules{% endif %}
+  </p>
+</section>
 
 <section class="uni-tasks-card" aria-labelledby="uni-tasks-title">
   <h2 id="uni-tasks-title" class="uni-tasks-title">Uni tasks</h2>

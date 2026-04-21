@@ -6,6 +6,7 @@ from typing import Any
 
 from app.services import (
     course_service,
+    degree_progress_service,
     lecture_links_service,
     lecture_service,
     planner_service,
@@ -83,6 +84,7 @@ def build_home_dashboard() -> dict[str, Any]:
     connection_hints = lecture_links_service.home_connection_hints(limit=5)
     uni_tasks_open = uni_tasks_open[:8]
     uni_tasks_done = uni_task_service.list_tasks(status="done", limit=4)
+    degree_summary = degree_progress_service.summarize()
 
     return {
         "continue_lectures": continue_,
@@ -97,5 +99,6 @@ def build_home_dashboard() -> dict[str, Any]:
         "connection_hints": connection_hints,
         "uni_tasks_open": uni_tasks_open,
         "uni_tasks_done": uni_tasks_done,
+        "degree_summary": degree_summary,
         "stats_line": dash.get("stats_line", ""),
     }

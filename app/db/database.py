@@ -121,6 +121,18 @@ def _ensure_planner_schedule_table(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_planner_legacy_kinds(conn: sqlite3.Connection) -> None:
+    """Map removed planner kinds (block, deadline) to project for a stable 3-kind model."""
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='planner_schedule_items'"
+    )
+    if cur.fetchone() is None:
+        return
+    conn.execute(
+        "UPDATE planner_schedule_items SET kind = 'project' WHERE kind IN ('block', 'deadline')"
+    )
+
+
 def _ensure_topic_quiz_mistake_stats(conn: sqlite3.Connection) -> None:
     cur = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='topic_quiz_mistake_stats'"
@@ -185,6 +197,43 @@ def _ensure_uni_tasks_table(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_uni_tasks_course ON uni_tasks(course_id)")
 
 
+def _ensure_degree_progress_tables(conn: sqlite3.Connection) -> None:
+    """Minimal degree / credit-point progress (local tracker, not a transcript)."""
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='degree_progress_meta'"
+    )
+    if cur.fetchone() is None:
+        conn.execute(
+            """
+            CREATE TABLE degree_progress_meta (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                target_cp REAL NOT NULL DEFAULT 180
+            )
+            """
+        )
+        conn.execute("INSERT OR IGNORE INTO degree_progress_meta (id, target_cp) VALUES (1, 180)")
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='degree_progress_entries'"
+    )
+    if cur.fetchone() is None:
+        conn.execute(
+            """
+            CREATE TABLE degree_progress_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                cp REAL NOT NULL,
+                done INTEGER NOT NULL DEFAULT 0,
+                category TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_degree_entries_done ON degree_progress_entries(done)"
+        )
+
+
 def init_db() -> None:
     ensure_directories()
     db_path: Path = DATABASE_PATH
@@ -195,8 +244,10 @@ def init_db() -> None:
         _ensure_study_progress_column(conn)
         _ensure_is_starred_column(conn)
         _ensure_planner_schedule_table(conn)
+        _migrate_planner_legacy_kinds(conn)
         _ensure_topic_quiz_mistake_stats(conn)
         _ensure_uni_tasks_table(conn)
+        _ensure_degree_progress_tables(conn)
         conn.commit()
 
 
