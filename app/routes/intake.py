@@ -22,6 +22,18 @@ router = APIRouter()
 _INTAKE_DIR = DATA_DIR / "intake_tmp"
 
 
+@router.get("/pdf", response_class=RedirectResponse)
+def redirect_legacy_pdf_route() -> RedirectResponse:
+    """Older Study AI / bookmarks used ``/pdf``; intake lives at ``/intake``."""
+    return RedirectResponse(url="/intake", status_code=307)
+
+
+@router.get("/add-pdf", response_class=RedirectResponse)
+def redirect_legacy_add_pdf_route() -> RedirectResponse:
+    """Optional legacy alias for the intake page."""
+    return RedirectResponse(url="/intake", status_code=307)
+
+
 def _ensure_intake_dir() -> Path:
     _INTAKE_DIR.mkdir(parents=True, exist_ok=True)
     return _INTAKE_DIR
