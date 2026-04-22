@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block extra_css %}
+<style>
+.intake-wrap { max-width: 38rem; margin: 0 auto; }
+.intake-drop {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  background: var(--card);
+  transition: border-color 0.15s, background 0.15s;
+}
+.intake-drop.dragover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+}
+.intake-drop p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.92rem; }
+.intake-drop .intake-primary { margin: 0; font-size: 1.05rem; font-weight: 650; color: var(--text); }
+.intake-actions { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center; }
+.intake-actions input[type="file"] { font-size: 0.85rem; }
+.intake-status {
+  margin-top: 1rem;
+  min-height: 1.25rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.intake-status.error { color: var(--error); }
+.intake-summary {
+  display: none;
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 0.9rem;
+}
+.intake-summary.visible { display: block; }
+.intake-summary dl { margin: 0; display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.35rem 0.75rem; }
+.intake-summary dt { margin: 0; color: var(--muted); font-weight: 500; }
+.intake-summary dd { margin: 0; }
+.intake-confirm { margin-top: 1rem; }
+.intake-confirm label { display: block; margin-bottom: 0.65rem; font-size: 0.88rem; }
+.intake-confirm select, .intake-confirm input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.45rem;
+  margin-top: 0.2rem;
+}
+.intake-row-btns { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.85rem; }
+.intake-muted { font-size: 0.8rem; color: var(--muted); margin-top: 0.75rem; }
+.intake-back { margin-top: 1.5rem; font-size: 0.88rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="intake-wrap">
+  <nav class="crumb crumb-path" aria-label="Breadcrumb">
+    <a href="/">Home</a>
+    <span class="crumb-sep" aria-hidden="true">/</span>
+    <span class="crumb-current">Add PDF</span>
+  </nav>
+  <h1 class="page-workspace-title">Add a PDF</h1>
+  <p class="lead workspace-lede" style="margin-bottom:1rem;">
+    Drop a lecture, slide deck, or Aufgabenblatt — Study Workflow guesses the course and type, then files it for you.
+  </p>
+
+  {% if error %}
+  <p class="flash flash-error">{{ error }}</p>
+  {% endif %}
+
+  <div id="intake-drop" class="intake-drop" tabindex="0" role="button" aria-label="Drop PDF here">
+    <p class="intake-primary">Drag and drop a PDF here</p>
+    <p>or pick a file from your computer</p>
+    <div class="intake-actions">
+      <input type="file" id="intake-file" accept=".pdf,application/pdf" aria-label="Choose PDF file">
+    </div>
+  </div>
+  <p id="intake-status" class="intake-status" aria-live="polite"></p>
+
+  <div id="intake-summary" class="intake-summary" hidden>
+    <dl>
+      <dt>Course guess</dt>
+      <dd id="sum-course">—</dd>
+      <dt>Document type</dt>
+      <dd id="sum-kind">—</dd>
+      <dt>Confidence</dt>
+      <dd id="sum-conf">—</dd>
+    </dl>
+    <p id="sum-note" class="intake-muted" style="margin-top:0.5rem;"></p>
+
+    <form id="intake-confirm-form" class="intake-confirm stack-form" method="post" action="/intake/commit">
+      <input type="hidden" name="token" id="f-token" value="">
+      <label>Course
+        <select name="course_id" id="f-course">
+          <option value="">— Select course —</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>New course name (optional)
+        <input type="text" name="new_course_name" id="f-newcourse" placeholder="Only if creating a new course" autocomplete="off" maxlength="200">
+      </label>
+      <label>Material type
+        <select name="material_kind" id="f-kind">
+          <option value="lecture">Lecture / slides</option>
+          <option value="exercise">Aufgabenblatt / exercise sheet</option>
+          <option value="material">Other study material</option>
+        </select>
+      </label>
+      <label>Title override (optional)
+        <input type="text" name="lecture_title" id="f-title" placeholder="Leave blank to infer from the PDF" autocomplete="off" maxlength="200">
+      </label>
+      <div class="intake-row-btns">
+        <button type="submit" class="button" id="btn-confirm">Save to library</button>
+        <button type="button" class="button button-secondary" id="btn-reset">Start over</button>
+      </div>
+    </form>
+
+    <form id="intake-discard-form" method="post" action="/intake/discard" style="display:none;">
+      <input type="hidden" name="token" id="d-token" value="">
+    </form>
+  </div>
+
+  <p class="intake-back muted small-print">
+    <a href="/">Back to home</a>
+    <span aria-hidden="true"> · </span>
+    <a href="/upload">Classic upload</a> (manual course pick)
+  </p>
+</div>
+{% endblock %}
+{% block page_scripts %}
+<script>
+  window.__INTAKE_DEFAULT_COURSE_ID__ = {{ default_course_id | tojson }};
+</script>
+<script defer src="{{ url_for('static', path='intake.js') }}"></script>
+{% endblock %}

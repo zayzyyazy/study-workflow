@@ -35,6 +35,7 @@ def build_meta_payload(
     extracted_text_path: Optional[str],
     status: str,
     created_at: str,
+    material_kind: Optional[str] = None,
     extraction_message: Optional[str] = None,
     generation_message: Optional[str] = None,
     generated_artifacts: Optional[list[dict[str, Any]]] = None,
@@ -74,6 +75,10 @@ def build_meta_payload(
             payload["lecture_analysis"] = lecture_analysis
         elif "lecture_analysis" in prev:
             payload["lecture_analysis"] = prev["lecture_analysis"]
+    if material_kind is not None:
+        payload["material_kind"] = material_kind
+    elif "material_kind" in prev:
+        payload["material_kind"] = prev["material_kind"]
     return payload
 
 
@@ -94,6 +99,7 @@ def sync_meta_for_lecture(
     extracted_rel_posix: Optional[str],
     status: str,
     db_created_at: str,
+    material_kind: Optional[str] = None,
     extraction_message: Optional[str] = None,
     generation_message: Optional[str] = None,
     generated_artifacts: Optional[list[dict[str, Any]]] = None,
@@ -110,6 +116,7 @@ def sync_meta_for_lecture(
         extracted_text_path=extracted_rel_posix,
         status=status,
         created_at=str(db_created_at),
+        material_kind=material_kind,
         extraction_message=extraction_message,
         generation_message=generation_message,
         generated_artifacts=generated_artifacts,

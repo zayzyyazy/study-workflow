@@ -72,7 +72,7 @@ def list_lectures_needing_attention(limit: int = 25) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.status, l.created_at,
+            SELECT l.id, l.title, l.status, l.created_at, l.material_kind,
                    l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -94,7 +94,7 @@ def search_lectures_global(q: str, limit: int = 50) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.status, l.created_at,
+            SELECT l.id, l.title, l.status, l.created_at, l.material_kind,
                    l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -131,7 +131,7 @@ def list_lectures_for_course_filtered(
         params.append(st)
 
     sql = f"""
-        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
+        SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, material_kind, created_at
         FROM lectures
         WHERE {' AND '.join(conditions)}
         ORDER BY created_at DESC
@@ -145,7 +145,7 @@ def list_recent_lectures(limit: int = 10) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.created_at,
+            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.material_kind, l.created_at,
                    l.source_file_name, l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -162,7 +162,7 @@ def list_lectures_for_course(course_id: int) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, material_kind, created_at
             FROM lectures
             WHERE course_id = ?
             ORDER BY created_at DESC
@@ -177,7 +177,7 @@ def list_lectures_course_sequence(course_id: int) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, created_at
+            SELECT id, course_id, title, slug, source_file_name, source_file_path, status, study_progress, is_starred, material_kind, created_at
             FROM lectures
             WHERE course_id = ?
             ORDER BY id ASC
@@ -192,7 +192,7 @@ def get_lecture_by_id(lecture_id: int) -> Optional[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT l.id, l.course_id, l.title, l.slug, l.source_file_name,
-                   l.source_file_path, l.extracted_text_path, l.status, l.study_progress, l.is_starred, l.created_at,
+                   l.source_file_path, l.extracted_text_path, l.status, l.study_progress, l.is_starred, l.material_kind, l.created_at,
                    c.name AS course_name, c.slug AS course_slug
             FROM lectures l
             JOIN courses c ON c.id = l.course_id
@@ -202,6 +202,17 @@ def get_lecture_by_id(lecture_id: int) -> Optional[dict[str, Any]]:
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+def next_slot_index_for_material_kind(course_id: int, material_kind: str) -> int:
+    """1-based next index for this material kind within the course (separate counters)."""
+    kind = (material_kind or "lecture").strip() or "lecture"
+    with get_connection() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM lectures WHERE course_id = ? AND material_kind = ?",
+            (course_id, kind),
+        )
+        return int(cur.fetchone()[0]) + 1
 
 
 def _next_lecture_index(conn: sqlite3.Connection, course_id: int) -> int:
@@ -234,10 +245,14 @@ def insert_lecture(
     source_file_path: str,
     extracted_text_path: Optional[str],
     status: str,
+    material_kind: str = "lecture",
 ) -> dict[str, Any]:
     title = title.strip()
     if not title:
         raise ValueError("Lecture title is required.")
+    mk = (material_kind or "lecture").strip() or "lecture"
+    if mk not in ("lecture", "exercise", "material"):
+        mk = "lecture"
     base = slugify(title)
     with get_connection() as conn:
         slug = _unique_lecture_slug(conn, course_id, base)
@@ -245,8 +260,8 @@ def insert_lecture(
             """
             INSERT INTO lectures (
                 course_id, title, slug, source_file_name, source_file_path,
-                extracted_text_path, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                extracted_text_path, status, material_kind
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 course_id,
@@ -256,6 +271,7 @@ def insert_lecture(
                 source_file_path,
                 extracted_text_path,
                 status,
+                mk,
             ),
         )
         conn.commit()
@@ -380,7 +396,7 @@ def list_starred_lectures(limit: int = 24) -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.status, l.study_progress, l.is_starred, l.created_at,
+            SELECT l.id, l.title, l.status, l.study_progress, l.is_starred, l.material_kind, l.created_at,
                    l.source_file_path,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l
@@ -399,7 +415,7 @@ def list_lectures_for_planner() -> list[dict[str, Any]]:
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.source_file_path,
+            SELECT l.id, l.title, l.slug, l.status, l.study_progress, l.is_starred, l.material_kind, l.source_file_path,
                    l.created_at,
                    c.id AS course_id, c.name AS course_name, c.slug AS course_slug
             FROM lectures l

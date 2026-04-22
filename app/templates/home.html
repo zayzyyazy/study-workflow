@@ -192,7 +192,8 @@
 
 <div class="home-dash-actions">
   <a class="button" href="/planner">Open planner</a>
-  <a class="button button-secondary" href="/upload">Upload lecture</a>
+  <a class="button" href="/intake">Add PDF</a>
+  <a class="button button-secondary" href="/upload">Classic upload</a>
 </div>
 
 {% set ds = hd.degree_summary %}
@@ -440,15 +441,15 @@
   <div class="empty-state empty-state--home">
     <p class="empty-state-title">No courses yet</p>
     <p class="muted">Create one by uploading a file and naming your course. It will show up here as a folder.</p>
-    <p><a class="button" href="/upload">Upload a lecture</a></p>
+    <p><a class="button" href="/intake">Add a PDF</a></p>
   </div>
   {% endif %}
 </section>
 
 <p class="home-upload-foot muted">
-  <a href="/upload">Add a lecture</a>
+  <a href="/intake">Add a PDF</a> (smart placement)
   <span class="home-upload-sep">·</span>
-  New material lands in the course you choose.
+  <a href="/upload">Classic upload</a>
 </p>
 
 <details class="home-testing-tools">

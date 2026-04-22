@@ -1,9 +1,34 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+.material-kind-pill {
+  font-size: 0.65rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.material-kind-pill--sheet { color: #5b21b6; border-color: #c4b5fd; background: #f5f3ff; }
+.material-kind-pill--mat { color: #0f766e; border-color: #5eead4; background: #f0fdfa; }
+</style>
+{% endblock %}
+
 {% macro lecture_folder_card(lec) %}
 <li class="lecture-folder-card lecture-folder-card--stacked lecture-folder-card--workspace">
   <div class="lecture-folder-title-row">
     <a class="lecture-folder-title-link" href="/lectures/{{ lec.id }}"><span class="lecture-folder-title">{{ lec.title }}</span></a>
+    {% set mk = lec.material_kind | default('lecture') %}
+    {% if mk == 'exercise' %}
+    <span class="material-kind-pill material-kind-pill--sheet" title="Exercise sheet">Sheet</span>
+    {% elif mk == 'material' %}
+    <span class="material-kind-pill material-kind-pill--mat" title="Supporting material">Material</span>
+    {% endif %}
     <form method="post" action="/lectures/{{ lec.id }}/star" class="lecture-star-form-card" onclick="event.stopPropagation();">
       <input type="hidden" name="starred" value="{% if lec.is_starred | default(0) %}0{% else %}1{% endif %}">
       <button type="submit" class="lecture-star-btn-mini" title="{% if lec.is_starred | default(0) %}Remove star{% else %}Star for home{% endif %}">{% if lec.is_starred | default(0) %}★{% else %}☆{% endif %}</button>
@@ -98,6 +123,7 @@
   <div class="course-section-head">
     <h2 class="section-heading course-lectures-heading">Lectures</h2>
     <p class="muted section-sub course-lectures-lede">Open a folder to read materials and study.</p>
+    <p class="muted small-print" style="margin:0.35rem 0 0;"><a href="/intake?course_id={{ course.id }}">Add PDF to this course</a> <span aria-hidden="true">·</span> smart placement from the intake page</p>
   </div>
 
   <details class="course-filter-details" {% if lec_q or lec_status %}open{% endif %}>
@@ -167,7 +193,7 @@
   <div class="empty-state empty-state--inline empty-state--course">
     <p class="empty-state-title">No lectures in this course yet</p>
     <p class="muted">Upload a file and choose this course, or add one from the home page.</p>
-    <p><a class="button" href="/upload">Upload a lecture</a></p>
+    <p><a class="button" href="/intake?course_id={{ course.id }}">Add a PDF</a></p>
   </div>
   {% else %}
   <div class="empty-state empty-state--inline">

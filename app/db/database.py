@@ -78,6 +78,18 @@ def _ensure_study_progress_column(conn: sqlite3.Connection) -> None:
         )
 
 
+def _ensure_lecture_material_kind(conn: sqlite3.Connection) -> None:
+    """Kind of uploaded item: lecture pipeline vs sheet vs supporting material."""
+    cur = conn.execute("PRAGMA table_info(lectures)")
+    names = {str(row[1]) for row in cur.fetchall()}
+    if "material_kind" not in names:
+        conn.execute(
+            """
+            ALTER TABLE lectures ADD COLUMN material_kind TEXT NOT NULL DEFAULT 'lecture'
+            """
+        )
+
+
 def _ensure_is_starred_column(conn: sqlite3.Connection) -> None:
     """Add is_starred for quick priority / favorite marking (0/1)."""
     cur = conn.execute("PRAGMA table_info(lectures)")
@@ -242,6 +254,7 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         _migrate_legacy_statuses(conn)
         _ensure_study_progress_column(conn)
+        _ensure_lecture_material_kind(conn)
         _ensure_is_starred_column(conn)
         _ensure_planner_schedule_table(conn)
         _migrate_planner_legacy_kinds(conn)

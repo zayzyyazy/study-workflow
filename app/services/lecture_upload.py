@@ -13,6 +13,17 @@ from app.services import source_manifest
 from app.services.slugs import sanitize_folder_name
 from app.services.lecture_statuses import READY_AFTER_EXTRACTION
 
+_DISPLAY_PREFIX = {"lecture": "Lecture", "exercise": "Sheet", "material": "Material"}
+
+
+def _normalize_material_kind(raw: str) -> str:
+    k = (raw or "lecture").strip().lower() or "lecture"
+    if k in ("sheet", "aufgabe", "aufgabenblatt", "ubung", "übung"):
+        return "exercise"
+    if k in ("lecture", "exercise", "material"):
+        return k
+    return "lecture"
+
 
 def _clean_title_candidate(raw: str) -> str:
     """
@@ -61,6 +72,7 @@ def create_lecture_from_upload(
     lecture_title: str,
     original_filename: str,
     file_obj: BinaryIO,
+    material_kind: str = "lecture",
 ) -> dict:
     """
     Creates or picks a course, writes files under courses/, runs extraction, inserts lecture.
@@ -79,9 +91,10 @@ def create_lecture_from_upload(
         raise ValueError("Choose an existing course or enter a new course name.")
 
     cid = int(course["id"])
-    idx = lecture_service.lecture_index_for_course(cid)
+    mk = _normalize_material_kind(material_kind)
+    idx = lecture_service.next_slot_index_for_material_kind(cid, mk)
     base_title = _derive_base_title(lecture_title, original_filename)
-    folder_name = storage_service.build_lecture_directory_name(idx, base_title)
+    folder_name = storage_service.build_lecture_directory_name(idx, base_title, material_kind=mk)
     course_folder = str(course["slug"])
 
     lecture_root, source_dir, _outputs = storage_service.ensure_lecture_paths(
@@ -115,7 +128,8 @@ def create_lecture_from_upload(
         )
         if inferred and len(inferred.strip()) >= 6:
             final_base = inferred.strip()
-    display_title = f"Lecture {idx:02d} - {final_base}"
+    prefix = _DISPLAY_PREFIX.get(mk, "Lecture")
+    display_title = f"{prefix} {idx:02d} - {final_base}"
 
     source_rel = lecture_meta.relative_to_app(dest_file)
 
@@ -131,6 +145,7 @@ def create_lecture_from_upload(
         source_file_path=source_rel,
         extracted_text_path=extracted_rel,
         status=status,
+        material_kind=mk,
     )
 
     lecture_meta.sync_meta_for_lecture(
@@ -147,6 +162,7 @@ def create_lecture_from_upload(
         generated_artifacts=[],
         generation_message="",
         drop_lecture_analysis=True,
+        material_kind=mk,
     )
     lec["extraction_message"] = extraction_note
     return lec
