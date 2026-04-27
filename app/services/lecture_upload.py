@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import BinaryIO, Optional
 
@@ -10,6 +12,8 @@ from app.services import course_service, extraction_service, lecture_service, st
 from app.services import lecture_title_infer
 from app.services import lecture_meta
 from app.services import source_manifest
+from app.services import upload_title_cleanup
+from app.services.pdf_intake_inference import read_pdf_metadata_title
 from app.services.slugs import sanitize_folder_name
 from app.services.lecture_statuses import READY_AFTER_EXTRACTION
 
@@ -25,44 +29,40 @@ def _normalize_material_kind(raw: str) -> str:
     return "lecture"
 
 
-def _clean_title_candidate(raw: str) -> str:
+def _finalize_readable_title(s: str) -> str:
+    """Polish casing, strip unsafe chars, cap length for folder + display."""
+    t = upload_title_cleanup.polish_readable_base((s or "").strip())
+    if not t:
+        return ""
+    t = lecture_title_infer._normalize_title_case(t)
+    return sanitize_folder_name(t, max_length=70)
+
+
+def _derive_base_title(
+    lecture_title: str,
+    original_filename: str,
+    *,
+    material_kind: str,
+    pdf_metadata_title: str = "",
+) -> str:
     """
-    Make a readable title from a user string or filename stem.
-    Keeps words human-friendly without over-normalizing.
+    Human-readable base segment (no Lecture/Sheet prefix — that is added later with index).
+    Uses optional PDF /Title metadata when it beats a scrubbed filename.
     """
-    s = (raw or "").strip()
-    if not s:
-        return ""
-    s = re.sub(r"[_\-]+", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    if not s:
-        return ""
-
-    parts = s.split(" ")
-    # Drop noisy leading lecture/week markers so names like lecture_3_sets -> sets.
-    while parts and re.fullmatch(r"(lecture|lec|vorlesung|week|wk)\.?", parts[0], flags=re.I):
-        parts = parts[1:]
-        while parts and re.fullmatch(r"\d{1,3}", parts[0]):
-            parts = parts[1:]
-    s = " ".join(parts).strip()
-    if not s:
-        return ""
-
-    s = s.title()
-    # Keep titles reasonably short and filesystem-safe.
-    s = sanitize_folder_name(s, max_length=70)
-    return s
-
-
-def _derive_base_title(lecture_title: str, original_filename: str) -> str:
-    custom = _clean_title_candidate(lecture_title)
-    if custom:
-        return custom
-    stem = Path(original_filename or "").stem
-    from_filename = _clean_title_candidate(stem)
-    if from_filename:
-        return from_filename
-    return "Untitled Lecture"
+    lt = (lecture_title or "").strip()
+    if lt:
+        seed = lt
+    else:
+        stem = Path(original_filename or "").stem
+        stem_s = upload_title_cleanup.scrub_filename_stem(stem)
+        meta_raw = (pdf_metadata_title or "").strip()
+        meta_s = upload_title_cleanup.scrub_filename_stem(meta_raw) if meta_raw else ""
+        seed = upload_title_cleanup.prefer_metadata_or_stem(meta_s, stem_s) if meta_s else stem_s
+    if not (seed or "").strip():
+        seed = "Untitled"
+    seed = upload_title_cleanup.strip_redundant_material_prefix(seed.strip(), material_kind)
+    out = _finalize_readable_title(seed)
+    return out or "Untitled Lecture"
 
 
 def create_lecture_from_upload(
@@ -93,7 +93,28 @@ def create_lecture_from_upload(
     cid = int(course["id"])
     mk = _normalize_material_kind(material_kind)
     idx = lecture_service.next_slot_index_for_material_kind(cid, mk)
-    base_title = _derive_base_title(lecture_title, original_filename)
+
+    file_obj.seek(0)
+    pdf_meta = ""
+    tdir = Path(tempfile.mkdtemp(prefix="pdfmeta-"))
+    try:
+        tpath = tdir / "in.pdf"
+        with tpath.open("wb") as out:
+            shutil.copyfileobj(file_obj, out)
+        if tpath.is_file() and tpath.stat().st_size > 0:
+            pdf_meta = read_pdf_metadata_title(tpath)
+    except OSError:
+        pdf_meta = ""
+    finally:
+        shutil.rmtree(tdir, ignore_errors=True)
+    file_obj.seek(0)
+
+    base_title = _derive_base_title(
+        lecture_title,
+        original_filename,
+        material_kind=mk,
+        pdf_metadata_title=pdf_meta,
+    )
     folder_name = storage_service.build_lecture_directory_name(idx, base_title, material_kind=mk)
     course_folder = str(course["slug"])
 
@@ -126,8 +147,10 @@ def create_lecture_from_upload(
             extraction.text,
             fallback=base_title,
         )
-        if inferred and len(inferred.strip()) >= 6:
+        if inferred and len(inferred.strip()) >= 5:
             final_base = inferred.strip()
+    final_base = upload_title_cleanup.strip_redundant_material_prefix(final_base.strip(), mk)
+    final_base = _finalize_readable_title(final_base) or base_title
     prefix = _DISPLAY_PREFIX.get(mk, "Lecture")
     display_title = f"{prefix} {idx:02d} - {final_base}"
 

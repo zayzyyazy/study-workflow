@@ -42,6 +42,11 @@ def tokenize(text: str) -> set[str]:
     return out
 
 
+def read_pdf_metadata_title(path: Path) -> str:
+    """Public wrapper: document Title metadata from PDF, or empty string."""
+    return _pdf_metadata_title(path)
+
+
 def _pdf_metadata_title(path: Path) -> str:
     try:
         from pypdf import PdfReader
