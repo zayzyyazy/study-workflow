@@ -91,6 +91,187 @@ def _format_slot(row: dict[str, Any], day: date) -> str:
     return f"{wd} {day.isoformat()} · {row['start_time']}–{row['end_time']} · {row['title']}"
 
 
+# Weekly learning grid: 08:00–22:00 local time (minutes from midnight)
+_WGRID_LO = 8 * 60
+_WGRID_HI = 22 * 60
+_WGRID_LEN = _WGRID_HI - _WGRID_LO
+
+
+def _minutes_from_midnight(t: time) -> int:
+    return t.hour * 60 + t.minute
+
+
+def _hhmm_from_minutes_abs(m: int) -> str:
+    m = max(0, min(24 * 60 - 1, m))
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def _week_dates_monday(today: date) -> list[date]:
+    monday = today - timedelta(days=today.weekday())
+    return [monday + timedelta(days=i) for i in range(7)]
+
+
+def _clip_to_learning_grid(sm: int, em: int) -> tuple[int, int] | None:
+    a = max(sm, _WGRID_LO)
+    b = min(em, _WGRID_HI)
+    if b <= a:
+        return None
+    return (a, b)
+
+
+def _merge_busy_union(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Merge overlapping [start,end) minute ranges (absolute from midnight)."""
+    iv = [(a, b) for a, b in intervals if b > a]
+    if not iv:
+        return []
+    iv.sort(key=lambda x: x[0])
+    out: list[list[int]] = [[iv[0][0], iv[0][1]]]
+    for a, b in iv[1:]:
+        if a <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(x[0], x[1]) for x in out]
+
+
+def _free_segments_in_grid(merged_busy: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Gaps inside [_WGRID_LO, _WGRID_HI) not covered by merged busy intervals."""
+    cursor = _WGRID_LO
+    free: list[tuple[int, int]] = []
+    for a, b in merged_busy:
+        aa = max(a, _WGRID_LO)
+        bb = min(b, _WGRID_HI)
+        if bb <= aa:
+            continue
+        if cursor < aa:
+            free.append((cursor, aa))
+        cursor = max(cursor, bb)
+    if cursor < _WGRID_HI:
+        free.append((cursor, _WGRID_HI))
+    return free
+
+
+def build_weekly_learning_grid(
+    today: date,
+    schedule: list[dict[str, Any]],
+    lectures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """
+    Mon–Sun columns, 08:00–22:00: blocked vs free time from planner_schedule_items,
+    plus catch-up lecture candidates (not done).
+    """
+    week_days = _week_dates_monday(today)
+    mon, sun = week_days[0], week_days[-1]
+    week_label = f"{mon.strftime('%b %d')} – {sun.strftime('%b %d, %Y')}"
+
+    days_out: list[dict[str, Any]] = []
+    for day in week_days:
+        raw_busy: list[tuple[int, int, dict[str, Any]]] = []
+        union_parts: list[tuple[int, int]] = []
+        for s in schedule:
+            if not _occurs_on_day(s, day):
+                continue
+            st = _parse_hhmm(str(s["start_time"]))
+            et = _parse_hhmm(str(s["end_time"]))
+            sm = _minutes_from_midnight(st)
+            em = _minutes_from_midnight(et)
+            clipped = _clip_to_learning_grid(sm, em)
+            if not clipped:
+                continue
+            a, b = clipped
+            raw_busy.append((sm, em, s))
+            union_parts.append((a, b))
+
+        merged = _merge_busy_union(union_parts)
+        free = _free_segments_in_grid(merged)
+
+        busy_blocks: list[dict[str, Any]] = []
+        for sm, em, row in raw_busy:
+            cl = _clip_to_learning_grid(sm, em)
+            if not cl:
+                continue
+            a, b = cl
+            top_pct = (a - _WGRID_LO) / _WGRID_LEN * 100.0
+            h_pct = (b - a) / _WGRID_LEN * 100.0
+            kind = str(row.get("kind") or "")
+            busy_blocks.append(
+                {
+                    "top_pct": round(top_pct, 3),
+                    "height_pct": round(max(h_pct, 0.35), 3),  # min height so short slots stay visible
+                    "start": _hhmm_from_minutes_abs(a),
+                    "end": _hhmm_from_minutes_abs(b),
+                    "title": str(row.get("title") or "—"),
+                    "kind": kind,
+                    "kind_label": _planner_kind_display(kind),
+                    "course_name": str(row.get("course_name") or "").strip() or None,
+                }
+            )
+
+        free_lines: list[dict[str, str]] = []
+        for a, b in free:
+            dur_min = b - a
+            if dur_min < 10:
+                continue
+            h, m = divmod(dur_min, 60)
+            if h and m:
+                extra = f"{h}h {m}m"
+            elif h:
+                extra = f"{h}h"
+            else:
+                extra = f"{m}m"
+            free_lines.append(
+                {
+                    "start": _hhmm_from_minutes_abs(a),
+                    "end": _hhmm_from_minutes_abs(b),
+                    "label": f"{_hhmm_from_minutes_abs(a)}–{_hhmm_from_minutes_abs(b)} ({extra})",
+                }
+            )
+
+        days_out.append(
+            {
+                "date_iso": day.isoformat(),
+                "weekday": WEEKDAY_NAMES[day.weekday()],
+                "weekday_long": WEEKDAY_NAMES_FORM[day.weekday()],
+                "is_today": day == today,
+                "busy_blocks": busy_blocks,
+                "free_segments": free_lines,
+            }
+        )
+
+    catch_rows: list[dict[str, Any]] = []
+    for lec in lectures:
+        sp = lec.get("study_progress") or "not_started"
+        if sp == "done":
+            continue
+        mk = str(lec.get("material_kind") or "lecture")
+        catch_rows.append(
+            {
+                "id": int(lec["id"]),
+                "title": str(lec.get("title") or ""),
+                "course_name": str(lec.get("course_name") or ""),
+                "progress": sp,
+                "material_kind": mk,
+                "href": f"/lectures/{int(lec['id'])}",
+            }
+        )
+    catch_rows.sort(
+        key=lambda x: (
+            0 if x["progress"] == "in_progress" else 1,
+            0 if x["material_kind"] == "lecture" else 1,
+            (x["course_name"] or "").lower(),
+            x["title"].lower(),
+        )
+    )
+
+    return {
+        "week_label": week_label,
+        "grid_start_label": "08:00",
+        "grid_end_label": "22:00",
+        "days": days_out,
+        "catch_up_lectures": catch_rows[:24],
+    }
+
+
 def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     now = now or datetime.now()
     today = now.date()
@@ -557,6 +738,8 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
     n_ns = sum(1 for lec in lectures if lec.get("study_progress") == "not_started")
     n_done = sum(1 for lec in lectures if lec.get("study_progress") == "done")
 
+    weekly_learning = build_weekly_learning_grid(today, schedule, lectures)
+
     return {
         "generated_at": now.strftime("%Y-%m-%d %H:%M"),
         "weekday_label": WEEKDAY_NAMES[today.weekday()],
@@ -592,6 +775,7 @@ def build_planner_dashboard(now: Optional[datetime] = None) -> dict[str, Any]:
         "stats_line": f"In progress: {n_ip} · Not started: {n_ns} · Done: {n_done}",
         "schedule_items": schedule,
         "today_rows_raw": today_rows,
+        "weekly_learning": weekly_learning,
     }
 
 

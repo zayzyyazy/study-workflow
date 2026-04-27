@@ -83,11 +83,172 @@
   border-bottom: 1px solid var(--border);
 }
 .schedule-table th { color: var(--muted); font-weight: 600; }
+
+/* Weekly learning grid (08:00–22:00) */
+.wl-section { margin-bottom: 2.25rem; }
+.wl-section h2 { font-size: 1.1rem; margin-bottom: 0.35rem; }
+.wl-lede { color: var(--muted); font-size: 0.9rem; max-width: 44rem; line-height: 1.45; margin-bottom: 0.75rem; }
+.wl-week-label { font-size: 0.88rem; color: var(--muted); margin-bottom: 0.5rem; }
+.wl-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0 0 0.35rem 0.15rem;
+  max-width: calc(7 * 7.5rem + 6 * 0.45rem);
+  min-width: min(100%, calc(7 * 7.5rem + 6 * 0.45rem));
+}
+.wl-grid-scroll { overflow-x: auto; padding-bottom: 0.35rem; -webkit-overflow-scrolling: touch; }
+.wl-columns {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(7.25rem, 1fr));
+  gap: 0.45rem;
+  min-width: 54rem;
+}
+.wl-day {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.wl-day-head {
+  text-align: center;
+  padding: 0.45rem 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.25;
+}
+.wl-day-head .wl-date { display: block; font-weight: 500; color: var(--muted); font-size: 0.72rem; margin-top: 0.12rem; }
+.wl-day-head.is-today {
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.wl-track {
+  position: relative;
+  flex: 1;
+  min-height: 20rem;
+  height: 20rem;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, #16a34a 7%, var(--card)) 0%,
+    color-mix(in srgb, #16a34a 4%, var(--card)) 100%
+  );
+}
+.wl-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 2px;
+  border-radius: 4px;
+  padding: 0.2rem 0.28rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--text) 88%, var(--card));
+  color: #fff;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 70%, var(--text));
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.wl-block .wl-b-time { font-weight: 650; opacity: 0.95; }
+.wl-block .wl-b-title { display: block; margin-top: 0.08rem; font-weight: 500; }
+.wl-block .wl-b-sub { display: block; font-size: 0.62rem; opacity: 0.88; margin-top: 0.06rem; }
+.wl-free-list { padding: 0.45rem 0.4rem 0.55rem; font-size: 0.72rem; color: var(--secondary); border-top: 1px solid var(--border); background: var(--card); }
+.wl-free-list strong { color: var(--text); font-size: 0.68rem; }
+.wl-free-list ul { margin: 0.25rem 0 0; padding-left: 1rem; }
+.wl-free-list li { margin-bottom: 0.2rem; }
+.wl-catch { margin-top: 1.25rem; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.wl-catch h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.wl-catch ul { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.wl-catch li { margin-bottom: 0.45rem; line-height: 1.35; }
+.wl-catch .wl-pill {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--border);
+  margin-right: 0.35rem;
+}
+.wl-catch .wl-pill.ip { background: color-mix(in srgb, var(--accent) 18%, var(--border)); }
 </style>
 {% endblock %}
 
 {% block content %}
 <h1>Planner</h1>
+
+{% set wl = dash.weekly_learning | default({}) %}
+{% if wl.days %}
+<section class="wl-section" id="weekly-learning-grid" aria-labelledby="wl-heading">
+  <h2 id="wl-heading">Weekly learning grid</h2>
+  <p class="wl-lede">
+    Each column is one day. Shaded band is <strong>08:00–22:00</strong> local time: darker blocks are commitments from your schedule (lectures, Übung, projects).
+    Green-tinted gaps inside the band are <strong>free windows</strong> for catch-up study. Below the grid: lectures still open in your library.
+  </p>
+  <p class="wl-week-label">Week of <strong>{{ wl.week_label }}</strong> · {{ wl.grid_start_label }}–{{ wl.grid_end_label }}</p>
+  <div class="wl-scale" aria-hidden="true">
+    <span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span><span>16:00</span><span>18:00</span><span>20:00</span><span>22:00</span>
+  </div>
+  <div class="wl-grid-scroll">
+    <div class="wl-columns">
+      {% for d in wl.days %}
+      <div class="wl-day">
+        <div class="wl-day-head{% if d.is_today %} is-today{% endif %}">
+          {{ d.weekday_long }}
+          <span class="wl-date">{{ d.date_iso }}</span>
+        </div>
+        <div class="wl-track" aria-label="Schedule {{ d.date_iso }} eight to twenty-two">
+          {% for b in d.busy_blocks %}
+          <div class="wl-block" style="top: {{ b.top_pct }}%; height: {{ b.height_pct }}%;">
+            <span class="wl-b-time">{{ b.start }}–{{ b.end }}</span>
+            <span class="wl-b-title">{{ b.title }}</span>
+            {% if b.course_name %}<span class="wl-b-sub">{{ b.course_name }} · {{ b.kind_label }}</span>
+            {% else %}<span class="wl-b-sub">{{ b.kind_label }}</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="wl-free-list">
+          <strong>Free windows</strong>
+          {% if d.free_segments %}
+          <ul>
+            {% for f in d.free_segments %}
+            <li>{{ f.label }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="planner-empty" style="margin:0.35rem 0 0;font-size:0.78rem;">No gap ≥10m (add fewer overlapping slots or widen times).</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="wl-catch" aria-labelledby="wl-catch-h">
+    <h3 id="wl-catch-h">Catch up on</h3>
+    <p class="muted small-print" style="margin:-0.25rem 0 0.5rem;">Lectures and materials not marked done — place study blocks in free windows above.</p>
+    {% if wl.catch_up_lectures %}
+    <ul>
+      {% for c in wl.catch_up_lectures %}
+      <li>
+        {% if c.progress == 'in_progress' %}<span class="wl-pill ip">In progress</span>{% else %}<span class="wl-pill">Not started</span>{% endif %}
+        <a href="{{ c.href }}">{{ c.title }}</a>
+        <span class="planner-sub">{{ c.course_name }}{% if c.material_kind %} · {{ c.material_kind }}{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="planner-empty">All tracked lectures are done — nice.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 <p class="planner-lede">
   Short, practical pointers from your schedule and library — no coaching, no long advice.
   Times use <strong>this computer’s local clock</strong>.

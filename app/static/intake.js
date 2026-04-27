@@ -138,11 +138,23 @@
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) previewFile(f);
   });
-  drop.addEventListener("click", function () {
+  // Opening the native file dialog twice (drop zone + bubbling from the file input)
+  // breaks the flow on macOS/Safari — only trigger programmatic open when the click
+  // was not already on the file input.
+  drop.addEventListener("click", function (e) {
+    if (e.target === fileInput) return;
+    if (fileInput.contains(e.target)) return;
     fileInput.click();
+  });
+  fileInput.addEventListener("click", function (e) {
+    e.stopPropagation();
+  });
+  fileInput.addEventListener("mousedown", function (e) {
+    e.stopPropagation();
   });
   drop.addEventListener("keydown", function (e) {
     if (e.key === "Enter" || e.key === " ") {
+      if (e.target === fileInput) return;
       e.preventDefault();
       fileInput.click();
     }
