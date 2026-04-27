@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_MAX_BASE_LEN = 68
+_MAX_BASE_LEN = 46
 _DATE_TOKEN = re.compile(r"\b20\d{2}[-_]\d{1,2}[-_]\d{1,2}\b", re.I)
 _UUID_LIKE = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",

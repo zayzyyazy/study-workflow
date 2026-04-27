@@ -29,13 +29,17 @@ def _normalize_material_kind(raw: str) -> str:
     return "lecture"
 
 
-def _finalize_readable_title(s: str) -> str:
-    """Polish casing, strip unsafe chars, cap length for folder + display."""
-    t = upload_title_cleanup.polish_readable_base((s or "").strip())
+def _finalize_readable_title(s: str, *, material_kind: str = "lecture") -> str:
+    """Polish casing, strip unsafe chars, card-friendly length for folder + display."""
+    raw = (s or "").strip()
+    t = lecture_title_infer.squeeze_card_base(raw, material_kind=material_kind)
     if not t:
-        return ""
+        t = lecture_title_infer._safe_short_fallback(material_kind)
+    t = upload_title_cleanup.polish_readable_base(
+        t, max_len=lecture_title_infer._CARD_BASE_MAX_CHARS + 2
+    )
     t = lecture_title_infer._normalize_title_case(t)
-    return sanitize_folder_name(t, max_length=70)
+    return sanitize_folder_name(t, max_length=52)
 
 
 def _derive_base_title(
@@ -61,7 +65,7 @@ def _derive_base_title(
     if not (seed or "").strip():
         seed = "Untitled"
     seed = upload_title_cleanup.strip_redundant_material_prefix(seed.strip(), material_kind)
-    out = _finalize_readable_title(seed)
+    out = _finalize_readable_title(seed, material_kind=material_kind)
     return out or "Untitled Lecture"
 
 
@@ -146,11 +150,15 @@ def create_lecture_from_upload(
         inferred = lecture_title_infer.infer_base_title_from_extracted_text(
             extraction.text,
             fallback=base_title,
+            material_kind=mk,
         )
-        if inferred and len(inferred.strip()) >= 5:
-            final_base = inferred.strip()
+        if inferred and len(inferred.strip()) >= 4:
+            if lecture_title_infer.is_unacceptable_card_title(inferred.strip(), mk):
+                final_base = base_title
+            else:
+                final_base = inferred.strip()
     final_base = upload_title_cleanup.strip_redundant_material_prefix(final_base.strip(), mk)
-    final_base = _finalize_readable_title(final_base) or base_title
+    final_base = _finalize_readable_title(final_base, material_kind=mk) or base_title
     prefix = _DISPLAY_PREFIX.get(mk, "Lecture")
     display_title = f"{prefix} {idx:02d} - {final_base}"
 
