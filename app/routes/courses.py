@@ -1,14 +1,16 @@
 """Course detail."""
 
 import io
+import shutil
+from html import escape
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.config import APP_ROOT
-from app.services import course_map_service, course_service, lecture_service
+from app.services import course_map_service, course_service, course_summaries_service, lecture_service
 from app.services.course_delete import delete_course
 from app.services.mini_help_service import context_for_request
 from app.services.storage_view import enrich_lecture_rows_for_course_ui
@@ -116,6 +118,14 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
     err = request.query_params.get("error")
     total_lectures_in_course = lecture_service.count_lectures_for_course(course_id)
     study_done_in_course = lecture_service.count_study_progress_in_course(course_id, "done")
+    summary_rows: list[dict] = []
+    for row in course_summaries_service.list_summary_files(str(course["slug"])):
+        summary_rows.append(
+            {
+                **row,
+                "view_href": f"/courses/{course_id}/summaries/file?name={quote(row['name'])}",
+            }
+        )
     return templates.TemplateResponse(
         request,
         "course_detail.html",
@@ -123,6 +133,8 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "title": course["name"],
             "course": course,
             "lectures": lectures,
+            "summary_files": summary_rows,
+            "summaries_path_hint": f"courses/{course['slug']}/summaries/",
             "total_lectures_in_course": total_lectures_in_course,
             "study_done_in_course": study_done_in_course,
             "notice": notice,
@@ -145,6 +157,73 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
                 study_done_in_course=study_done_in_course,
             ),
         },
+    )
+
+
+@router.post("/courses/{course_id}/summaries/upload", response_model=None)
+async def post_upload_course_summary(
+    course_id: int,
+    file: UploadFile = File(...),
+) -> RedirectResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    slug = str(course["slug"])
+    safe = course_summaries_service.safe_summary_basename(file.filename or "")
+    if not safe:
+        return RedirectResponse(
+            url=f"/courses/{course_id}?error="
+            + quote("Use a .md, .txt, .markdown, or .pdf file with a simple filename (no folders)."),
+            status_code=303,
+        )
+    dest_dir = course_summaries_service.ensure_summaries_dir(slug)
+    dest = dest_dir / safe
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(file.file, out)
+    except OSError as e:
+        return RedirectResponse(
+            url=f"/courses/{course_id}?error=" + quote(f"Could not save summary: {e}"),
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/courses/{course_id}?notice=" + quote(f"Saved your summary «{safe}»."),
+        status_code=303,
+    )
+
+
+@router.get("/courses/{course_id}/summaries/file", response_model=None)
+def get_course_summary_file(
+    course_id: int,
+    name: str = "",
+) -> FileResponse | HTMLResponse:
+    course = course_service.get_course_by_id(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    path = course_summaries_service.resolved_summary_path(str(course["slug"]), name)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found")
+    suf = path.suffix.lower()
+    if suf in (".md", ".txt", ".markdown"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            raise HTTPException(status_code=500, detail="Could not read file") from None
+        body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{escape(path.name)}</title>
+<link rel="stylesheet" href="/static/style.css"></head>
+<body class="container" style="max-width:52rem;margin:1rem auto;">
+<p class="muted small-print"><a href="/courses/{course_id}">← Back to {escape(course['name'])}</a></p>
+<h1 style="font-size:1.1rem;margin:0.5rem 0;">{escape(path.name)}</h1>
+<pre style="white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px solid var(--border);padding:1rem;border-radius:8px;font-size:0.88rem;">{escape(text)}</pre>
+</body></html>"""
+        return HTMLResponse(body)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=path.name,
+        headers={"Content-Disposition": f'inline; filename="{path.name}"'},
     )
 
 

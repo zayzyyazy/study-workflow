@@ -32,7 +32,7 @@ def build_home_dashboard() -> dict[str, Any]:
         ),
         reverse=True,
     )
-    continue_ = continue_[:6]
+    continue_ = continue_[:3]
 
     not_started = [l for l in lectures if l.get("study_progress") == "not_started"]
     not_started.sort(
@@ -44,13 +44,13 @@ def build_home_dashboard() -> dict[str, Any]:
         ),
         reverse=True,
     )
-    not_started = not_started[:6]
+    not_started = not_started[:3]
 
     recent = sorted(
         lectures,
         key=lambda x: x.get("created_at") or "",
         reverse=True,
-    )[:5]
+    )[:3]
 
     courses = course_service.list_courses_for_home_dashboard()
     attention: list[dict[str, Any]] = []
@@ -67,23 +67,24 @@ def build_home_dashboard() -> dict[str, Any]:
                 "name": c["name"],
                 "href": f"/courses/{c['id']}",
                 "note": f"{left} not done",
+                "undone": left,
+                "total": lc,
             }
         )
+    attention.sort(key=lambda x: int(x.get("undone") or 0), reverse=True)
     attention = attention[:6]
 
-    deep_picks = topic_deep_dive.list_missing_recommended_deep_dives(5)
-    deep_by_course = topic_deep_dive.missing_deep_dives_by_course_summary()[:4]
+    deep_picks = topic_deep_dive.list_missing_recommended_deep_dives(3)
+    deep_by_course = topic_deep_dive.missing_deep_dives_by_course_summary()[:2]
 
     planner_next = dash.get("next_up") or []
-    planner_next = planner_next[:4]
-    focus = dash.get("focus_lines") or []
-    focus = focus[:4]
+    planner_next = planner_next[:3]
     next_actions = dash.get("next_actions") or []
-    next_actions = next_actions[:5]
+    next_actions = next_actions[:4]
 
-    connection_hints = lecture_links_service.home_connection_hints(limit=5)
-    uni_tasks_open = uni_tasks_open[:8]
-    uni_tasks_done = uni_task_service.list_tasks(status="done", limit=4)
+    connection_hints = lecture_links_service.home_connection_hints(limit=3)
+    uni_tasks_open = uni_tasks_open[:5]
+    uni_tasks_done: list[dict[str, Any]] = []
     degree_summary = degree_progress_service.summarize()
 
     return {
@@ -94,7 +95,6 @@ def build_home_dashboard() -> dict[str, Any]:
         "deep_dive_picks": deep_picks,
         "deep_dive_by_course": deep_by_course,
         "planner_next": planner_next,
-        "planner_focus": focus,
         "next_actions": next_actions,
         "connection_hints": connection_hints,
         "uni_tasks_open": uni_tasks_open,

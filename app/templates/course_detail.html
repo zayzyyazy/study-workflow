@@ -16,6 +16,18 @@
 }
 .material-kind-pill--sheet { color: #5b21b6; border-color: #c4b5fd; background: #f5f3ff; }
 .material-kind-pill--mat { color: #0f766e; border-color: #5eead4; background: #f0fdfa; }
+.course-summaries-section {
+  margin-top: 1.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--card));
+}
+.course-summaries-section h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.course-summaries-upload { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+.course-summaries-upload label { font-size: 0.82rem; color: var(--muted); }
+.course-summaries-list { list-style: none; margin: 0.65rem 0 0; padding: 0; font-size: 0.9rem; }
+.course-summaries-list li { margin-bottom: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; }
 </style>
 {% endblock %}
 
@@ -121,8 +133,8 @@
 
 <section class="course-lectures-section workspace-section course-lectures-lead">
   <div class="course-section-head">
-    <h2 class="section-heading course-lectures-heading">Lectures</h2>
-    <p class="muted section-sub course-lectures-lede">Open a folder to read materials and study.</p>
+    <h2 class="section-heading course-lectures-heading">Course materials &amp; sources</h2>
+    <p class="muted section-sub course-lectures-lede">Uploaded PDFs, exercise sheets, and other files from the course — each card is one material folder.</p>
     <p class="muted small-print" style="margin:0.35rem 0 0;"><a href="/intake?course_id={{ course.id }}">Add PDF to this course</a> <span aria-hidden="true">·</span> smart placement from the intake page</p>
   </div>
 
@@ -203,6 +215,33 @@
   {% endif %}
 </section>
 
+<section class="course-summaries-section workspace-section" aria-labelledby="course-summaries-h">
+  <h2 id="course-summaries-h">My summaries (Zusammenfassungen)</h2>
+  <p class="muted small-print" style="margin:0 0 0.5rem;">
+    Your own notes and summary files — kept separate from lecture uploads. Stored on disk under
+    <code class="path-chip">{{ summaries_path_hint }}</code>
+    (you can also drop files there in Finder).
+  </p>
+  <form class="course-summaries-upload" method="post" action="/courses/{{ course.id }}/summaries/upload" enctype="multipart/form-data">
+    <label>Add file (.md, .txt, .pdf)
+      <input type="file" name="file" accept=".md,.txt,.markdown,.pdf,application/pdf,text/markdown,text/plain" required>
+    </label>
+    <button type="submit" class="button button-secondary button-small">Upload summary</button>
+  </form>
+  {% if summary_files %}
+  <ul class="course-summaries-list">
+    {% for s in summary_files %}
+    <li>
+      <a href="{{ s.view_href }}">{{ s.name }}</a>
+      <span class="muted small-print">{{ "%.1f"|format(s.size_bytes / 1024.0) }} KB</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small-print" style="margin:0.65rem 0 0;">No summary files yet — upload one above or add files in the summaries folder.</p>
+  {% endif %}
+</section>
+
 <details class="course-tools-panel">
   <summary class="course-tools-summary">Course tools — export, bulk generate, reset study marks</summary>
   <div class="course-tools-inner">
@@ -251,8 +290,8 @@
   </div>
 </details>
 
-<section class="concept-index-section course-concept-secondary">
-  <h2 class="section-heading section-heading--sub">Course concept index</h2>
+<details class="concept-index-section course-concept-secondary">
+  <summary class="section-heading section-heading--sub" style="cursor:pointer;">Course concept index (optional)</summary>
   <p class="muted small-print">Concepts come from generated materials. Click a tag to focus one concept; search narrows the list.</p>
   <form class="filter-toolbar" method="get" action="/courses/{{ course.id }}">
     <input type="hidden" name="lec_q" value="{{ lec_q or '' }}">
@@ -296,6 +335,6 @@
   {% else %}
   <p class="muted">No concepts match these filters. Generate study materials or adjust the search.</p>
   {% endif %}
-</section>
+</details>
 </div>
 {% endblock %}
