@@ -17,7 +17,11 @@ from app.services.storage_view import enrich_lecture_rows_for_course_ui
 from app.services.bulk_generation_service import run_bulk_generate_ready_in_course
 from app.services.course_index_service import aggregate_course_concepts_filtered
 from app.services.export_zip_service import zip_course_export
-from app.services.lecture_service import KNOWN_LECTURE_STATUSES, STUDY_PROGRESS_STATES
+from app.services.lecture_service import (
+    KNOWN_LECTURE_STATUSES,
+    STUDY_PROGRESS_STATES,
+    effective_material_kind,
+)
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "app" / "templates"))
 router = APIRouter()
@@ -129,10 +133,10 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
         course_id, "done", material_kind="lecture"
     )
     lecture_rows = [
-        lec for lec in lectures if str(lec.get("material_kind") or "lecture").strip() == "lecture"
+        lec for lec in lectures if effective_material_kind(lec.get("material_kind")) == "lecture"
     ]
     extra_rows = [
-        lec for lec in lectures if str(lec.get("material_kind") or "lecture").strip() != "lecture"
+        lec for lec in lectures if effective_material_kind(lec.get("material_kind")) != "lecture"
     ]
     summary_rows: list[dict] = []
     for row in course_summaries_service.list_summary_files(str(course["slug"])):

@@ -97,7 +97,8 @@
   <h1 class="page-workspace-title course-workspace-title">{{ course.name }}</h1>
   {% if total_lectures_in_course > 0 %}
   {% set pct = ((study_done_in_course * 100) // total_lectures_in_course) %}
-  {% set open_lc = lectures_open_count | default(0) %}
+  {# Derive open count here so UI never disagrees with the header totals (matches DB lecture-track). #}
+  {% set open_lc = total_lectures_in_course - study_done_in_course %}
   <div class="course-progress-block" aria-label="Lecture progress (Vorlesungen only)">
     <div class="course-progress-head">
       <span class="course-progress-label">

@@ -22,6 +22,55 @@ KNOWN_LECTURE_STATUSES = (
 STUDY_PROGRESS_STATES = ("not_started", "in_progress", "done")
 
 
+def sql_effective_material_kind(column_expr: str) -> str:
+    """
+    SQLite fragment that normalizes legacy / messy material_kind columns to exactly
+    'lecture', 'exercise', or 'material' (matches :func:`effective_material_kind`).
+    ``column_expr`` is the fully-qualified SQL reference, e.g. ``material_kind`` or ``l.material_kind``.
+    """
+    return (
+        "("
+        "CASE "
+        f"WHEN TRIM(IFNULL({column_expr}, '')) = '' THEN 'lecture' "
+        f"WHEN LOWER(TRIM({column_expr})) IN ('general','lec','vorlesung','vl','lectures') THEN 'lecture' "
+        f"WHEN LOWER(TRIM({column_expr})) IN ("
+        f"'exercise','sheet','sheets','aufgabenblatt','aufgabe','ubung','übung','uebung','homework'"
+        f") THEN 'exercise' "
+        f"WHEN LOWER(TRIM({column_expr})) IN ('material','materials','handout','reader','skript')"
+        f"THEN 'material' "
+        "ELSE 'lecture' END)"
+    )
+
+
+def effective_material_kind(raw: Any) -> str:
+    """
+    Same classification rules as ``sql_effective_material_kind``. Unknown legacy values default
+    to ``lecture`` so Vorlesungen are not hidden from the lecture list when the DB string is unexpected.
+    """
+    if raw is None:
+        return "lecture"
+    s = str(raw).replace("\x00", "").strip().lower()
+    if not s:
+        return "lecture"
+    if s in {"general", "lec", "vorlesung", "vl", "lecture", "lectures"}:
+        return "lecture"
+    if s in {
+        "exercise",
+        "sheet",
+        "sheets",
+        "aufgabenblatt",
+        "aufgabe",
+        "ubung",
+        "übung",
+        "uebung",
+        "homework",
+    }:
+        return "exercise"
+    if s in {"material", "materials", "handout", "reader", "skript"}:
+        return "material"
+    return "lecture"
+
+
 def count_lectures() -> int:
     with get_connection() as conn:
         cur = conn.execute("SELECT COUNT(*) FROM lectures")
@@ -29,12 +78,13 @@ def count_lectures() -> int:
 
 
 def count_lectures_for_course(course_id: int, *, material_kind: str | None = None) -> int:
-    """Count items in a course. When material_kind is set, only that role (lecture / exercise / material)."""
+    """Count items in a course. When material_kind is set, only that canonical role."""
+    ek = sql_effective_material_kind("material_kind")
     with get_connection() as conn:
-        sql = "SELECT COUNT(*) FROM lectures WHERE course_id = ?"
+        sql = f"SELECT COUNT(*) FROM lectures WHERE course_id = ?"
         params: list[Any] = [course_id]
         if material_kind is not None:
-            sql += " AND material_kind = ?"
+            sql += f" AND {ek} = ?"
             params.append(material_kind)
         cur = conn.execute(sql, params)
         return int(cur.fetchone()[0])
@@ -46,6 +96,7 @@ def count_study_progress_in_course(
     *,
     material_kind: str | None = None,
 ) -> int:
+    ek = sql_effective_material_kind("material_kind")
     with get_connection() as conn:
         sql = """
             SELECT COUNT(*) FROM lectures
@@ -53,21 +104,22 @@ def count_study_progress_in_course(
         """
         params: list[Any] = [course_id, progress]
         if material_kind is not None:
-            sql += " AND material_kind = ?"
+            sql += f" AND {ek} = ?"
             params.append(material_kind)
         cur = conn.execute(sql, params)
         return int(cur.fetchone()[0])
 
 
 def count_sources_by_kind(course_id: int) -> dict[str, int]:
-    """How many DB rows per material_kind in this course."""
+    """How many DB rows per *canonical* role in this course (same rules as lecture progress)."""
+    ek = sql_effective_material_kind("material_kind")
     with get_connection() as conn:
         cur = conn.execute(
-            """
-            SELECT COALESCE(NULLIF(TRIM(material_kind), ''), 'lecture'), COUNT(*)
+            f"""
+            SELECT {ek}, COUNT(*)
             FROM lectures
             WHERE course_id = ?
-            GROUP BY COALESCE(NULLIF(TRIM(material_kind), ''), 'lecture')
+            GROUP BY 1
             """,
             (course_id,),
         )
@@ -76,15 +128,16 @@ def count_sources_by_kind(course_id: int) -> dict[str, int]:
 
 def study_progress_library_totals() -> dict[str, int]:
     """Lecture-track totals only (Vorlesungen), excluding sheets and misc materials."""
+    ek = sql_effective_material_kind("material_kind")
     with get_connection() as conn:
         cur = conn.execute(
-            "SELECT COUNT(*) FROM lectures WHERE material_kind = 'lecture'"
+            f"SELECT COUNT(*) FROM lectures WHERE {ek} = 'lecture'",
         )
         total = int(cur.fetchone()[0])
         cur = conn.execute(
-            """
+            f"""
             SELECT COUNT(*) FROM lectures
-            WHERE material_kind = 'lecture' AND study_progress = 'done'
+            WHERE {ek} = 'lecture' AND study_progress = 'done'
             """
         )
         done = int(cur.fetchone()[0])

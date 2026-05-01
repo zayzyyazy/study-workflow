@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any, Optional
 
 from app.db.database import get_connection
+from app.services.lecture_service import sql_effective_material_kind
 from app.services.slugs import slugify
 
 
@@ -27,18 +28,19 @@ def list_courses_for_home_dashboard() -> list[dict[str, Any]]:
     """
     Courses with lecture count and latest lecture date for folder-style home cards.
     """
+    mk = sql_effective_material_kind("l.material_kind")
     with get_connection() as conn:
         cur = conn.execute(
-            """
+            f"""
             SELECT c.id, c.name, c.slug, c.created_at,
-                   COALESCE(SUM(CASE WHEN l.material_kind = 'lecture' THEN 1 ELSE 0 END), 0)
+                   COALESCE(SUM(CASE WHEN {mk} = 'lecture' THEN 1 ELSE 0 END), 0)
                        AS lecture_count,
-                   COALESCE(SUM(CASE WHEN l.material_kind = 'exercise' THEN 1 ELSE 0 END), 0)
+                   COALESCE(SUM(CASE WHEN {mk} = 'exercise' THEN 1 ELSE 0 END), 0)
                        AS sheet_count,
-                   COALESCE(SUM(CASE WHEN l.material_kind = 'material' THEN 1 ELSE 0 END), 0)
+                   COALESCE(SUM(CASE WHEN {mk} = 'material' THEN 1 ELSE 0 END), 0)
                        AS material_count,
                    MAX(l.created_at) AS last_lecture_at,
-                   COALESCE(SUM(CASE WHEN l.material_kind = 'lecture'
+                   COALESCE(SUM(CASE WHEN {mk} = 'lecture'
                                         AND l.study_progress = 'done' THEN 1 ELSE 0 END), 0)
                        AS study_done_count
             FROM courses c
