@@ -66,7 +66,7 @@ def build_home_dashboard() -> dict[str, Any]:
             {
                 "name": c["name"],
                 "href": f"/courses/{c['id']}",
-                "note": f"{left} not done",
+                "note": f"{left} lectures open",
                 "undone": left,
                 "total": lc,
             }

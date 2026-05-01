@@ -43,8 +43,10 @@ def course_map_and_path(request: Request, course_id: int) -> HTMLResponse:
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     ctx = course_map_service.build_course_map_and_path(course_id)
-    total_lectures = lecture_service.count_lectures_for_course(course_id)
-    study_done = lecture_service.count_study_progress_in_course(course_id, "done")
+    total_lectures = lecture_service.count_lectures_for_course(course_id, material_kind="lecture")
+    study_done = lecture_service.count_study_progress_in_course(
+        course_id, "done", material_kind="lecture"
+    )
     return templates.TemplateResponse(
         request,
         "course_study_plan.html",
@@ -116,8 +118,22 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
     )
     notice = request.query_params.get("notice")
     err = request.query_params.get("error")
-    total_lectures_in_course = lecture_service.count_lectures_for_course(course_id)
-    study_done_in_course = lecture_service.count_study_progress_in_course(course_id, "done")
+    kind_counts = lecture_service.count_sources_by_kind(course_id)
+    sheet_count = int(kind_counts.get("exercise", 0))
+    material_count = int(kind_counts.get("material", 0))
+    total_source_folders = lecture_service.count_lectures_for_course(course_id)
+    total_lectures_in_course = lecture_service.count_lectures_for_course(
+        course_id, material_kind="lecture"
+    )
+    study_done_in_course = lecture_service.count_study_progress_in_course(
+        course_id, "done", material_kind="lecture"
+    )
+    lecture_rows = [
+        lec for lec in lectures if str(lec.get("material_kind") or "lecture").strip() == "lecture"
+    ]
+    extra_rows = [
+        lec for lec in lectures if str(lec.get("material_kind") or "lecture").strip() != "lecture"
+    ]
     summary_rows: list[dict] = []
     for row in course_summaries_service.list_summary_files(str(course["slug"])):
         summary_rows.append(
@@ -137,6 +153,12 @@ def course_detail(request: Request, course_id: int) -> HTMLResponse:
             "summaries_path_hint": f"courses/{course['slug']}/summaries/",
             "total_lectures_in_course": total_lectures_in_course,
             "study_done_in_course": study_done_in_course,
+            "lectures_open_count": max(0, total_lectures_in_course - study_done_in_course),
+            "sheet_count": sheet_count,
+            "material_count": material_count,
+            "lecture_rows": lecture_rows,
+            "extra_rows": extra_rows,
+            "total_source_folders": total_source_folders,
             "notice": notice,
             "error": err,
             "concept_rows": concept_rows,

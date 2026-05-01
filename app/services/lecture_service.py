@@ -28,33 +28,65 @@ def count_lectures() -> int:
         return int(cur.fetchone()[0])
 
 
-def count_lectures_for_course(course_id: int) -> int:
+def count_lectures_for_course(course_id: int, *, material_kind: str | None = None) -> int:
+    """Count items in a course. When material_kind is set, only that role (lecture / exercise / material)."""
     with get_connection() as conn:
-        cur = conn.execute(
-            "SELECT COUNT(*) FROM lectures WHERE course_id = ?",
-            (course_id,),
-        )
+        sql = "SELECT COUNT(*) FROM lectures WHERE course_id = ?"
+        params: list[Any] = [course_id]
+        if material_kind is not None:
+            sql += " AND material_kind = ?"
+            params.append(material_kind)
+        cur = conn.execute(sql, params)
         return int(cur.fetchone()[0])
 
 
-def count_study_progress_in_course(course_id: int, progress: str) -> int:
+def count_study_progress_in_course(
+    course_id: int,
+    progress: str,
+    *,
+    material_kind: str | None = None,
+) -> int:
+    with get_connection() as conn:
+        sql = """
+            SELECT COUNT(*) FROM lectures
+            WHERE course_id = ? AND study_progress = ?
+        """
+        params: list[Any] = [course_id, progress]
+        if material_kind is not None:
+            sql += " AND material_kind = ?"
+            params.append(material_kind)
+        cur = conn.execute(sql, params)
+        return int(cur.fetchone()[0])
+
+
+def count_sources_by_kind(course_id: int) -> dict[str, int]:
+    """How many DB rows per material_kind in this course."""
     with get_connection() as conn:
         cur = conn.execute(
             """
-            SELECT COUNT(*) FROM lectures
-            WHERE course_id = ? AND study_progress = ?
+            SELECT COALESCE(NULLIF(TRIM(material_kind), ''), 'lecture'), COUNT(*)
+            FROM lectures
+            WHERE course_id = ?
+            GROUP BY COALESCE(NULLIF(TRIM(material_kind), ''), 'lecture')
             """,
-            (course_id, progress),
+            (course_id,),
         )
-        return int(cur.fetchone()[0])
+        return {str(row[0]): int(row[1]) for row in cur.fetchall()}
 
 
 def study_progress_library_totals() -> dict[str, int]:
-    """Total lectures and how many marked done (for home summary)."""
+    """Lecture-track totals only (Vorlesungen), excluding sheets and misc materials."""
     with get_connection() as conn:
-        cur = conn.execute("SELECT COUNT(*) FROM lectures")
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM lectures WHERE material_kind = 'lecture'"
+        )
         total = int(cur.fetchone()[0])
-        cur = conn.execute("SELECT COUNT(*) FROM lectures WHERE study_progress = 'done'")
+        cur = conn.execute(
+            """
+            SELECT COUNT(*) FROM lectures
+            WHERE material_kind = 'lecture' AND study_progress = 'done'
+            """
+        )
         done = int(cur.fetchone()[0])
         return {"total": total, "done": done}
 

@@ -31,9 +31,16 @@ def list_courses_for_home_dashboard() -> list[dict[str, Any]]:
         cur = conn.execute(
             """
             SELECT c.id, c.name, c.slug, c.created_at,
-                   COUNT(l.id) AS lecture_count,
+                   COALESCE(SUM(CASE WHEN l.material_kind = 'lecture' THEN 1 ELSE 0 END), 0)
+                       AS lecture_count,
+                   COALESCE(SUM(CASE WHEN l.material_kind = 'exercise' THEN 1 ELSE 0 END), 0)
+                       AS sheet_count,
+                   COALESCE(SUM(CASE WHEN l.material_kind = 'material' THEN 1 ELSE 0 END), 0)
+                       AS material_count,
                    MAX(l.created_at) AS last_lecture_at,
-                   COALESCE(SUM(CASE WHEN l.study_progress = 'done' THEN 1 ELSE 0 END), 0) AS study_done_count
+                   COALESCE(SUM(CASE WHEN l.material_kind = 'lecture'
+                                        AND l.study_progress = 'done' THEN 1 ELSE 0 END), 0)
+                       AS study_done_count
             FROM courses c
             LEFT JOIN lectures l ON l.course_id = c.id
             GROUP BY c.id

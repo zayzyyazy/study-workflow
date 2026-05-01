@@ -97,22 +97,38 @@
   <h1 class="page-workspace-title course-workspace-title">{{ course.name }}</h1>
   {% if total_lectures_in_course > 0 %}
   {% set pct = ((study_done_in_course * 100) // total_lectures_in_course) %}
-  <div class="course-progress-block" aria-label="Study progress in this course">
+  {% set open_lc = lectures_open_count | default(0) %}
+  <div class="course-progress-block" aria-label="Lecture progress (Vorlesungen only)">
     <div class="course-progress-head">
       <span class="course-progress-label">
         <strong class="course-progress-numbers">{{ study_done_in_course }}</strong> of {{ total_lectures_in_course }} lecture{% if total_lectures_in_course != 1 %}s{% endif %} done
       </span>
+      <span class="course-progress-label muted" style="margin-left:0.5rem;font-weight:520;">
+        · <strong>{{ open_lc }}</strong> lecture{% if open_lc != 1 %}s{% endif %} open
+      </span>
+      {% if sheet_count or material_count %}
+      <span class="muted small-print" style="display:block;margin-top:0.35rem;">
+        Sheets &amp; materials ({{ sheet_count | default(0) }} sheet{% if sheet_count != 1 %}s{% endif %}, {{ material_count | default(0) }} material{% if material_count != 1 %}s{% endif %}) stay below — they are not part of this bar.
+      </span>
+      {% endif %}
       {% if study_done_in_course == total_lectures_in_course %}
-      <span class="course-progress-celebrate muted">You're all caught up here.</span>
+      <span class="course-progress-celebrate muted">Every lecture here is marked done.</span>
       {% elif study_done_in_course == 0 %}
       <span class="course-progress-nudge muted">Pick a lecture below to get started.</span>
       {% else %}
-      <span class="course-progress-nudge muted">Keep going — you're making progress.</span>
+      <span class="course-progress-nudge muted">Keep going — close out the remaining lectures.</span>
       {% endif %}
     </div>
-    <div class="course-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total_lectures_in_course }}" aria-valuenow="{{ study_done_in_course }}" aria-label="{{ pct }} percent done">
+    <div class="course-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total_lectures_in_course }}" aria-valuenow="{{ study_done_in_course }}" aria-label="{{ pct }} percent of lectures done">
       <span class="course-progress-fill" style="width: {{ pct }}%;"></span>
     </div>
+  </div>
+  {% elif sheet_count or material_count %}
+  <div class="course-progress-block course-progress-block--muted" aria-label="Lecture progress">
+    <p class="muted small-print" style="margin:0;">
+      <strong>Lecture progress</strong> is not shown yet — there are no items tagged as Vorlesungen in this course.
+      You have <strong>{{ sheet_count | default(0) }}</strong> sheet(s) and <strong>{{ material_count | default(0) }}</strong> material(s) below. Add a <strong>lecture</strong> PDF to track real lecture catch-up here.
+    </p>
   </div>
   {% endif %}
   <p class="course-plan-entry muted small-print" style="margin: 0.5rem 0 0;">
@@ -133,8 +149,12 @@
 
 <section class="course-lectures-section workspace-section course-lectures-lead">
   <div class="course-section-head">
-    <h2 class="section-heading course-lectures-heading">Course materials &amp; sources</h2>
-    <p class="muted section-sub course-lectures-lede">Uploaded PDFs, exercise sheets, and other files from the course — each card is one material folder.</p>
+    <h2 class="section-heading course-lectures-heading">{% if lec_q or lec_status %}Course materials{% else %}Lectures &amp; supporting files{% endif %}</h2>
+    {% if lec_q or lec_status %}
+    <p class="muted section-sub course-lectures-lede">Filtered view — sheets and Vorlesungen can appear together while a filter is active.</p>
+    {% else %}
+    <p class="muted section-sub course-lectures-lede"><strong>Lectures</strong> drive the progress bar above. <strong>Sheets and materials</strong> are listed separately so practice PDFs don’t look like unfinished Vorlesungen.</p>
+    {% endif %}
     <p class="muted small-print" style="margin:0.35rem 0 0;"><a href="/intake?course_id={{ course.id }}">Add PDF to this course</a> <span aria-hidden="true">·</span> smart placement from the intake page</p>
   </div>
 
@@ -169,30 +189,50 @@
 
   {% if lectures %}
   {% if total_lectures_in_course > 0 and study_done_in_course == total_lectures_in_course and not lec_q and not lec_status %}
-  <p class="course-all-done-banner">Every lecture is marked <strong>done</strong>. Open one anytime to review — or change progress from the menu on each card.</p>
+  <p class="course-all-done-banner">Every Vorlesung in this course is marked <strong>done</strong>. Open one anytime to review — or change progress from the menu on each card.</p>
   {% endif %}
 
   {% if not lec_q and not lec_status %}
-  {% for group_title, group_key in [('In progress', 'in_progress'), ('Not started', 'not_started'), ('Done', 'done')] %}
-  {% set ns = namespace(found=false) %}
-  {% for lec in lectures %}
-    {% if (lec.study_progress | default('not_started')) == group_key %}
-      {% set ns.found = true %}
+  <div class="course-lecture-track-block">
+    <h3 class="lecture-group-title" style="font-size:1.02rem;margin-bottom:0.25rem;">Lectures</h3>
+    {% if lecture_rows %}
+    {% for group_title, group_key in [('In progress', 'in_progress'), ('Not started', 'not_started'), ('Done', 'done')] %}
+    {% set ns = namespace(found=false) %}
+    {% for lec in lecture_rows %}
+      {% if (lec.study_progress | default('not_started')) == group_key %}
+        {% set ns.found = true %}
+      {% endif %}
+    {% endfor %}
+    {% if ns.found %}
+    <div class="lecture-group">
+      <h4 class="lecture-group-title" style="font-size:0.95rem;">{{ group_title }}</h4>
+      <ul class="lecture-folder-list lecture-folder-grid lecture-folder-grid--course">
+        {% for lec in lecture_rows %}
+          {% if (lec.study_progress | default('not_started')) == group_key %}
+          {{ lecture_folder_card(lec) }}
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
-  {% endfor %}
-  {% if ns.found %}
-  <div class="lecture-group">
-    <h3 class="lecture-group-title">{{ group_title }}</h3>
+    {% endfor %}
+    {% else %}
+    <p class="muted small-print" style="margin:0;">No Vorlesungen yet — intake a PDF as <strong>lecture</strong> to populate this list.</p>
+    {% endif %}
+  </div>
+  {% if extra_rows %}
+  <div class="course-extras-block" style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+    <h3 class="lecture-group-title" style="font-size:1.02rem;margin-bottom:0.25rem;">Sheets &amp; materials</h3>
+    <p class="muted small-print" style="margin:0 0 0.6rem;">
+      {{ sheet_count | default(0) }} sheet{% if sheet_count != 1 %}s{% endif %}, {{ material_count | default(0) }} material{% if material_count != 1 %}s{% endif %} —
+      accessible here but <strong>not</strong> included in lecture progress.</p>
     <ul class="lecture-folder-list lecture-folder-grid lecture-folder-grid--course">
-      {% for lec in lectures %}
-        {% if (lec.study_progress | default('not_started')) == group_key %}
-        {{ lecture_folder_card(lec) }}
-        {% endif %}
+      {% for lec in extra_rows %}
+      {{ lecture_folder_card(lec) }}
       {% endfor %}
     </ul>
   </div>
   {% endif %}
-  {% endfor %}
   {% else %}
   <ul class="lecture-folder-list lecture-folder-grid lecture-folder-grid--course">
     {% for lec in lectures %}
@@ -201,16 +241,16 @@
   </ul>
   {% endif %}
 
-  {% elif total_lectures_in_course == 0 %}
+  {% elif (total_source_folders | default(0)) == 0 %}
   <div class="empty-state empty-state--inline empty-state--course">
-    <p class="empty-state-title">No lectures in this course yet</p>
+    <p class="empty-state-title">No materials in this course yet</p>
     <p class="muted">Upload a file and choose this course, or add one from the home page.</p>
     <p><a class="button" href="/intake?course_id={{ course.id }}">Add a PDF</a></p>
   </div>
   {% else %}
   <div class="empty-state empty-state--inline">
-    <p>No lectures match these filters.</p>
-    <p class="muted small-print"><a href="{{ clear_lecture_href }}">Clear filters</a> to see all {{ total_lectures_in_course }} lecture{% if total_lectures_in_course != 1 %}s{% endif %}.</p>
+    <p>No items match these filters.</p>
+    <p class="muted small-print"><a href="{{ clear_lecture_href }}">Clear filters</a> to see all {{ total_source_folders }} item{% if total_source_folders != 1 %}s{% endif %} in this course.</p>
   </div>
   {% endif %}
 </section>

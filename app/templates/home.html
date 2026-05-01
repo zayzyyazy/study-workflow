@@ -210,7 +210,7 @@
 </p>
 {% if study_totals.total > 0 %}
 <p class="home-study-summary muted">
-  <span class="home-study-summary-strong">{{ study_totals.done }}</span> of {{ study_totals.total }} lecture{% if study_totals.total != 1 %}s{% endif %} marked done
+  <span class="home-study-summary-strong">{{ study_totals.done }}</span> of {{ study_totals.total }} lecture{% if study_totals.total != 1 %}s{% endif %} marked done <span class="muted small-print">(lectures only — sheets/materials excluded)</span>
   {% if hd.stats_line %}· {{ hd.stats_line }}{% endif %}
 </p>
 {% endif %}
@@ -320,7 +320,7 @@
       {% for c in hd.courses_attention %}
       <li>
         <a href="{{ c.href }}">{{ c.name }}</a>
-        <span class="sub">{{ c.undone }}/{{ c.total }} not done</span>
+        <span class="sub">{{ c.undone }} of {{ c.total }} lectures open</span>
       </li>
       {% endfor %}
     </ul>
@@ -423,18 +423,31 @@
         <span class="course-folder-icon" aria-hidden="true"></span>
         <span class="course-folder-name">{{ c.name }}</span>
         <span class="course-folder-meta muted">
+          {% set sx = c.sheet_count | default(0) %}
+          {% set mx = c.material_count | default(0) %}
+          {% set extras = sx + mx %}
           {% if c.lecture_count %}
           {{ c.lecture_count }} lecture{% if c.lecture_count != 1 %}s{% endif %}
+          {% set left_lc = c.lecture_count - (c.study_done_count | default(0)) %}
+          {% if left_lc > 0 %} · {{ left_lc }} open{% endif %}
           {% if c.study_done_count is defined and c.study_done_count == c.lecture_count %}
-          · <span class="course-folder-done">All done</span>
+          · <span class="course-folder-done">All lectures done</span>
           {% elif c.study_done_count %}
-          · <span class="course-folder-progress">{{ c.study_done_count }}/{{ c.lecture_count }} done</span>
+          · <span class="course-folder-progress">{{ c.study_done_count }}/{{ c.lecture_count }} lectures done</span>
+          {% endif %}
+          {% if extras %}
+          <span class="course-folder-extras muted small-print"> · {{ sx }} sheet{% if sx != 1 %}s{% endif %}, {{ mx }} material{% if mx != 1 %}s{% endif %}</span>
           {% endif %}
           {% if c.last_lecture_at %}
           <span class="course-folder-when"> · Last activity <time datetime="{{ c.last_lecture_at }}">{{ c.last_lecture_at }}</time></span>
           {% endif %}
+          {% elif extras %}
+          No lectures yet · {{ sx }} sheet{% if sx != 1 %}s{% endif %}, {{ mx }} material{% if mx != 1 %}s{% endif %}
+          {% if c.last_lecture_at %}
+          <span class="course-folder-when"> · Last activity <time datetime="{{ c.last_lecture_at }}">{{ c.last_lecture_at }}</time></span>
+          {% endif %}
           {% else %}
-          Empty — open to add lectures
+          Empty — open to add files
           {% endif %}
         </span>
       </a>
