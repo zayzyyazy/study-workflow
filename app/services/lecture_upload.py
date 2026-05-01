@@ -48,6 +48,7 @@ def _derive_base_title(
     *,
     material_kind: str,
     pdf_metadata_title: str = "",
+    course_name: str = "",
 ) -> str:
     """
     Human-readable base segment (no Lecture/Sheet prefix — that is added later with index).
@@ -65,6 +66,7 @@ def _derive_base_title(
     if not (seed or "").strip():
         seed = "Untitled"
     seed = upload_title_cleanup.strip_redundant_material_prefix(seed.strip(), material_kind)
+    seed = upload_title_cleanup.strip_duplicate_course_title(seed, course_name)
     out = _finalize_readable_title(seed, material_kind=material_kind)
     return out or "Untitled Lecture"
 
@@ -118,6 +120,7 @@ def create_lecture_from_upload(
         original_filename,
         material_kind=mk,
         pdf_metadata_title=pdf_meta,
+        course_name=str(course.get("name") or ""),
     )
     folder_name = storage_service.build_lecture_directory_name(idx, base_title, material_kind=mk)
     course_folder = str(course["slug"])
@@ -158,6 +161,12 @@ def create_lecture_from_upload(
             else:
                 final_base = inferred.strip()
     final_base = upload_title_cleanup.strip_redundant_material_prefix(final_base.strip(), mk)
+    final_base = upload_title_cleanup.contextualize_upload_title(
+        final_base,
+        course_name=str(course.get("name") or ""),
+        course_slug=str(course.get("slug") or ""),
+        material_kind=mk,
+    )
     final_base = _finalize_readable_title(final_base, material_kind=mk) or base_title
     prefix = _DISPLAY_PREFIX.get(mk, "Lecture")
     display_title = f"{prefix} {idx:02d} - {final_base}"

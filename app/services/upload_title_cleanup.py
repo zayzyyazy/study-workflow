@@ -6,6 +6,27 @@ import re
 from pathlib import Path
 
 _MAX_BASE_LEN = 46
+# When prefixing "Course · topic", allow slightly longer card segment before squeeze.
+_CONTEXTUAL_BASE_MAX = 54
+_CONTEXT_SEP = " · "
+_COURSE_LABEL_STOP = frozenset(
+    {
+        "course",
+        "kurs",
+        "vorlesung",
+        "lecture",
+        "seminar",
+        "modul",
+        "module",
+        "introduction",
+        "einführung",
+        "einfuhrung",
+        "übung",
+        "ubung",
+        "tutorial",
+        "praktikum",
+    }
+)
 _DATE_TOKEN = re.compile(r"\b20\d{2}[-_]\d{1,2}[-_]\d{1,2}\b", re.I)
 _UUID_LIKE = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
@@ -180,6 +201,89 @@ def strip_redundant_material_prefix(base: str, material_kind: str) -> str:
             break
     s = _space_camel_case(s)
     return s
+
+
+def strip_duplicate_course_title(base: str, course_name: str) -> str:
+    """
+    If the topic repeats the opening words of the course name, drop that overlap
+    (e.g. course «Digitale Medien», base «Digitale Medien Encoding» → «Encoding»).
+    """
+    base = (base or "").strip()
+    cn = (course_name or "").strip()
+    if not base or not cn:
+        return base
+    bw = base.split()
+    cw = [w for w in cn.split() if w][:6]
+    if not cw:
+        return base
+    n = 0
+    for i in range(min(len(bw), len(cw))):
+        if bw[i].lower() == cw[i].lower():
+            n += 1
+        else:
+            break
+    if len(cw) == 1:
+        if n >= 1:
+            rest = " ".join(bw[n:]).strip()
+            return rest if rest else base
+        return base
+    if n >= 2:
+        rest = " ".join(bw[n:]).strip()
+        return rest if rest else base
+    return base
+
+
+def short_course_context_label(course_name: str, course_slug: str = "", *, max_len: int = 22) -> str:
+    """Compact label from course display name or slug (for «Course · topic» titles)."""
+    name = (course_name or "").strip()
+    if not name:
+        name = (course_slug or "").replace("-", " ").replace("_", " ").strip()
+    words: list[str] = []
+    for w in re.split(r"\s+", name):
+        w = re.sub(r"[^\w\-äöüÄÖÜß]", "", w, flags=re.UNICODE)
+        if not w:
+            continue
+        lw = w.lower()
+        if lw in _COURSE_LABEL_STOP:
+            continue
+        if re.fullmatch(r"\d{4}", lw):
+            continue
+        if re.match(r"^(ws|ss|sose|wise|summer|winter)\d*$", lw, re.I):
+            continue
+        words.append(w)
+        if len(words) >= 3:
+            break
+    label = " ".join(words[:3]).strip()
+    if len(label) > max_len:
+        cut = label[: max_len + 1]
+        label = cut.rsplit(" ", 1)[0].strip() if " " in cut else cut.strip()
+    return label
+
+
+def contextualize_upload_title(
+    base: str,
+    *,
+    course_name: str,
+    course_slug: str = "",
+    material_kind: str = "lecture",
+) -> str:
+    """
+    Prefix a short course label so library titles stay readable in multi-course semesters.
+    ``material_kind`` reserved for future tweaks (e.g. shorter labels for sheets).
+    """
+    _ = material_kind
+    base = strip_duplicate_course_title((base or "").strip(), course_name)
+    label = short_course_context_label(course_name, course_slug)
+    if not label:
+        return base
+    if _CONTEXT_SEP in base:
+        return base
+    bl = base.lower()
+    ll = label.lower()
+    if bl == ll or (bl.startswith(ll) and len(base) <= len(label) + 1):
+        return base
+    merged = f"{label}{_CONTEXT_SEP}{base}".strip()
+    return polish_readable_base(merged, max_len=_CONTEXTUAL_BASE_MAX)
 
 
 def polish_readable_base(s: str, *, max_len: int = _MAX_BASE_LEN) -> str:
